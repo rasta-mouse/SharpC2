@@ -131,9 +131,15 @@ public class InteractionScreen : Screen
             {
                 if (argument.Artefact)
                 {
-                    // read from resources directory
                     artefactPath = argument.DefaultValue;
-                    artefact = await Helpers.GetDefaultResource(artefactPath, Drone.Metadata.Architecture == ProcessArch.X64);
+                    
+                    if (!File.Exists(artefactPath))
+                    {
+                        PrintError($"{artefactPath} does not exist");
+                        return;
+                    }
+
+                    artefact = await File.ReadAllBytesAsync(artefactPath);
                     continue;
                 }
                 
