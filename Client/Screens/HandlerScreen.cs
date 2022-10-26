@@ -100,10 +100,7 @@ public sealed class HandlerScreen : Screen
             case HandlerType.TCP:
                 await StartTcpHandler();
                 break;
-            
-            case HandlerType.EXTERNAL:
-                break;
-            
+
             default:
                 throw new ArgumentOutOfRangeException();
         }

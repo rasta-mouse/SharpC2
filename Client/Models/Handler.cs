@@ -16,8 +16,7 @@ public enum HandlerType
 {
     HTTP,
     SMB,
-    TCP,
-    EXTERNAL
+    TCP
 }
 
 public enum PayloadType
