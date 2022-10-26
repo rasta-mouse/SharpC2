@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <PublishSingleFile>true</PublishSingleFile>
+        <AssemblyName>teamserver</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" Version="11.0.1" />
+        <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+        <PackageReference Include="dnlib" Version="3.5.0" />
+        <PackageReference Include="DonutCore" Version="1.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.4" />
+        <PackageReference Include="protobuf-net" Version="3.1.0" />
+        <PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+        <PackageReference Include="YamlDotNet.NetCore" Version="1.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SharpC2.API\SharpC2.API.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="SharpC2.db" />
+      <None Remove="server.crt" />
+      <None Remove="server.key" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Resources\drone.dll" />
+      <EmbeddedResource Include="Resources\drone.dll" />
+      <None Remove="Resources\exe_stager.exe" />
+      <EmbeddedResource Include="Resources\exe_stager.exe" />
+      <None Remove="Resources\svc_stager.exe" />
+      <EmbeddedResource Include="Resources\svc_stager.exe" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="..\Stagers\stager.ps1">
+        <Link>Resources\stager.ps1</Link>
+      </EmbeddedResource>
+    </ItemGroup>
+
+</Project>

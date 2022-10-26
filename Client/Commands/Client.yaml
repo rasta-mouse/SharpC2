@@ -1,0 +1,9 @@
+﻿# These commands are only for the benefit of autocomplete on the interaction screen
+
+- Alias: help
+  Description: Show command help
+  Arguments:
+    - Name: command
+      
+- Alias: back
+  Description: Go back to the Drone screen

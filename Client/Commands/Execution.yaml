@@ -1,0 +1,56 @@
+﻿- Alias: shell
+  Description: Execute a program via cmd.exe
+  Command: 13
+  Arguments:
+    - Name: args
+      Optional: false
+
+- Alias: run
+  Description: Execute a program
+  Command: 14
+  Arguments:
+    - Name: program
+      Optional: false
+    - Name: args
+      
+- Alias: powershell-import
+  Description: Import a PowerShell script
+  Command: 15
+  Arguments:
+    - Name: /path/to/script
+      Optional: false
+      Artefact: true
+
+- Alias: powershell
+  Description: Execute unmanaged PowerShell
+  Command: 16
+  Arguments:
+    - Name: args
+      Optional: false
+
+- Alias: execute-assembly
+  Description: Load a .NET assembly and call its Entry Point
+  Command: 17
+  Arguments:
+    - Name: /path/to/assembly
+      Optional: false
+      Artefact: true
+    - Name: args
+      
+- Alias: inline-execute
+  Description: Load and execute a custom IDroneCommand
+  Command: 18
+  Arguments:
+    - Name: /path/to/assembly
+      Optional: false
+      Artefact: true
+    - Name: args
+      
+- Alias: overload
+  Description: Load a native DLL and call an exported function
+  Command: 19
+  Arguments:
+    - Name: /path/to/dll
+      Optional: false
+      Artefact: true
+    - Name: args

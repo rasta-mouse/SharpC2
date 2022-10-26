@@ -1,0 +1,29 @@
+﻿- Alias: spawnto
+  Description: Set the SpawnTo for post-ex tasks
+  Command: 26
+  Arguments:
+    - Name: /path/to/program
+
+- Alias: ppid
+  Description: Set the PPID for post-ex tasks
+  Command: 27
+  Arguments:
+    - Name: pid
+
+- Alias: blockdlls
+  Description: Enable PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY for post-ex tasks
+  Command: 28
+  Arguments:
+    - Name: true/false
+  
+- Alias: sleep
+  Description: Set the sleep and jitter
+  Command: 29
+  Arguments:
+    - Name: interval
+      Optional: false
+    - Name: jitter
+  
+- Alias: exit
+  Description: Task this Drone to close
+  Command: 34

