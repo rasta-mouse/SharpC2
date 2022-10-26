@@ -75,7 +75,7 @@ public class PayloadService : IPayloadService
         var connectAddressDef = httpHandlerDef.GetMethodDef("System.String Drone.Handlers.HttpHandler::get_ConnectAddress()");
 
         var address = secure ? "https://" : "http://";
-        address += address;
+        address += connectAddress;
         
         connectAddressDef.Body.Instructions[0].Operand = address;
         
