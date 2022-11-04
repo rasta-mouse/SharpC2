@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Server.Kestrel.Core;
+﻿using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.SignalR;
-
+using System.Net;
 using TeamServer.Interfaces;
 using TeamServer.Services;
 
@@ -42,7 +43,7 @@ public class HttpHandler : Handler
 
     private void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseUrls($"http://0.0.0.0:{BindPort}");
+        builder.UseUrls(Secure ? $"https://0.0.0.0:{BindPort}" : $"http://0.0.0.0:{BindPort}");
         builder.UseSetting("name", Name);
         builder.Configure(ConfigureApp);
         builder.ConfigureServices(ConfigureServices);
@@ -77,12 +78,17 @@ public class HttpHandler : Handler
         services.AddControllers();
         services.AddAutoMapper(typeof(Program));
     }
-
-    private static void ConfigureKestrel(KestrelServerOptions kestrel)
+    private  void ConfigureKestrel(KestrelServerOptions kestrel)
     {
         kestrel.AddServerHeader = false;
+        kestrel.Listen(IPAddress.Any, BindPort, ListenOptions);
     }
 
+    private static void ListenOptions(ListenOptions o)
+    {
+        o.Protocols = HttpProtocols.Http1AndHttp2;
+        o.UseHttps("server.key");
+    }
     public void Stop()
     {
         // if null or already cancelled
