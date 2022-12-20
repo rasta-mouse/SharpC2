@@ -1,0 +1,245 @@
+﻿@attribute [Authorize]
+@page "/interact/{id}"
+
+@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject CommandService Commands
+@inject IDialogService Dialogs
+
+@implements IDisposable
+
+@using System.Text
+@using Client.Components.Tasks
+@using Client.Models.Drones
+@using Client.Models.Tasks
+
+@using TaskStatus = Client.Models.Tasks.TaskStatus
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge">
+
+    @if (_drone is not null)
+    {
+        <MudStack Justify="Justify.Center">
+
+            <div id="panels" class="overflow-auto" style="max-height: 70vh">
+                <MudExpansionPanels MultiExpansion="true">
+                    @foreach (var task in _tasks)
+                    {
+                        <MudExpansionPanel>
+                            <TitleContent>
+                                <div class="d-flex">
+                                    <MudText Typo="Typo.overline">Operator:</MudText>
+                                    <MudText Typo="Typo.overline" Class="pl-2">@task.Nick</MudText>
+                                    
+                                    <MudText Typo="Typo.overline" Class="pl-8">Start:</MudText>
+                                    <MudText Typo="Typo.overline" Class="pl-2">@task.StartTime</MudText>
+
+                                    <MudText Typo="Typo.overline" Class="pl-8">End:</MudText>
+                                    <MudText Typo="Typo.overline" Class="pl-2">@task.EndTime</MudText>
+
+                                    <MudText Typo="Typo.overline" Class="pl-8">Status:</MudText>
+                                    <MudText Typo="Typo.overline" Class="pl-2">@task.Status</MudText>
+
+                                    @if (task.Status is TaskStatus.PENDING or TaskStatus.RUNNING)
+                                    {
+                                        var color = task.Status == TaskStatus.PENDING ? Color.Error : Color.Warning;
+
+                                        <MudIconButton Icon="@Icons.Outlined.Cancel" Color="@color" Class="ml-8 mt-n2"
+                                                       Title="Cancel Task" OnClick="@(async () => await CancelTask(task))"/>
+                                    }
+
+                                </div>
+                                <div class="d-flex">
+                                    <MudText Typo="Typo.overline">Command: @task.FullCommand</MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                
+                                @if (task.ResultType == ResultType.STRING)
+                                {
+                                    <pre>
+                                        @Encoding.UTF8.GetString(task.Result)
+                                    </pre>
+                                }
+                                
+                                @if (task.ResultType == ResultType.DIRECTORY_LISTING)
+                                {
+                                    <DirectoryListing TaskRecord="@task" />
+                                }
+                                
+                                @if (task.ResultType == ResultType.PROCESS_LISTING)
+                                {
+                                    <ProcessListing TaskRecord="@task" />
+                                }
+                                
+                                @if (task.ResultType == ResultType.SCREENSHOT)
+                                {
+                                    // don't show anything unless the task is complete
+                                    if (task.Status == TaskStatus.COMPLETE)
+                                    {
+                                        var encoded = Convert.ToBase64String(task.Result, 0, task.Result.Length);
+                                        <img src="data:image/png;base64, @encoded" alt="@task.TaskId" />
+                                    }
+                                }
+                                
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    }
+                </MudExpansionPanels>
+
+                <MudScrollToTop TopOffset="10"
+                                Selector="#panels"
+                                VisibleCssClass="visible absolute"
+                                HiddenCssClass="invisible">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Filled.ArrowUpward" Color="Color.Primary">Go to top</MudButton>
+                </MudScrollToTop>
+            </div>
+
+            <MudAutocomplete T="string" Class="fixed-bottom" Label="Command" Variant="Variant.Outlined" TextUpdateSuppression="@false"
+                             SearchFunc="@SearchCommands" ValueChanged="@CommandChanged" Clearable="@true"
+                             ResetValueOnEmptyText="@true" @ref="@_autocomplete" />
+
+            <MudPaper Class="d-flex fixed-bottom justify-space-between flex-grow-1 gap-4 pa-2">
+                <MudText Typo="Typo.overline">@_drone.ToString()</MudText>
+                <MudText Typo="Typo.overline">@_drone.Seen</MudText>
+            </MudPaper>
+        </MudStack>
+    }
+
+</MudContainer>
+
+@code {
+
+    [Parameter]
+    public string Id { get; set; }
+
+    private readonly List<TaskRecord> _tasks = new();
+    private Drone _drone;
+    
+    private MudAutocomplete<string> _autocomplete = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.DroneCheckedIn += OnDroneCheckedIn;
+        Hub.DroneTasked += OnDroneTasked;
+        Hub.TaskDeleted += OnTaskDeleted;
+        Hub.TaskUpdated += OnReceivedTaskOutput;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _drone = await Api.GetDrone(Id);
+        _drone.SeenUpdated += OnSeenUpdated;
+
+        var tasks = (await Api.GetTasks(_drone.Metadata.Id)).OrderByDescending(t => t.EndTime);
+        _tasks.AddRange(tasks);
+    }
+
+    private async void OnSeenUpdated()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnReceivedTaskOutput(string droneId, string taskId)
+    {
+        var task = await Api.GetTask(droneId, taskId);
+
+        if (task is null)
+            return;
+
+        var existing = _tasks.Find(t => t.TaskId.Equals(task.TaskId));
+
+        if (existing is not null)
+        {
+            existing.Update(task);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnDroneTasked(string droneId, string taskId)
+    {
+        var task = await Api.GetTask(droneId, taskId);
+
+        if (task is null)
+            return;
+
+        _tasks.Insert(0, task);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDroneCheckedIn(string droneId)
+    {
+        if (_drone is null)
+            return;
+        
+        if (_drone.Metadata.Id.Equals(droneId))
+            _drone?.CheckIn();
+
+        await Task.CompletedTask;
+    }
+    
+    private async Task OnTaskDeleted(string droneId, string taskId)
+    {
+        if (!_drone.Metadata.Id.Equals(droneId))
+            return;
+
+        var task = _tasks.Find(t => t.TaskId.Equals(taskId));
+
+        if (task is null)
+            return;
+
+        _tasks.Remove(task);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task<IEnumerable<string>> SearchCommands(string value)
+    {
+        var commands = Commands.Get();
+
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(commands.Select(c => c.Alias));
+
+        return Task.FromResult(commands
+            .Where(c => c.Alias.StartsWith(value, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Alias));
+    }
+
+    private async Task CommandChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        var command = Commands.Get(value);
+
+        if (command is null)
+        {
+            await Dialogs.ShowMessageBox("Error", "Unknown command");
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { "DroneId", _drone.Metadata.Id },
+            { "Command", command }
+        };
+
+        await Dialogs.ShowAsync<TaskInput>(command.Alias, parameters);
+
+        _autocomplete.Reset();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CancelTask(TaskRecord record)
+    {
+        await Api.DeleteTask(record.DroneId, record.TaskId);
+    }
+    
+    public void Dispose()
+    {
+        Hub.DroneCheckedIn -= OnDroneCheckedIn;
+        Hub.DroneTasked -= OnDroneTasked;
+        Hub.TaskUpdated -= OnReceivedTaskOutput;
+
+        _drone.SeenUpdated -= OnSeenUpdated;
+    }
+}

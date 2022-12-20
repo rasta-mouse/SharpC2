@@ -1,0 +1,103 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+
+@implements IDisposable
+
+@using Client.Models.Handlers
+
+<MudTable Items="@_handlers" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Bind Port</MudTh>
+        <MudTh>Connect Address</MudTh>
+        <MudTh>Connect Port</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="BindPort">@context.BindPort</MudTd>
+        <MudTd DataLabel="ConnectAddress">@context.ConnectAddress</MudTd>
+        <MudTd DataLabel="ConnectPort">@context.ConnectPort</MudTd>
+        <MudTd>
+            <MudTooltip Text="Host File">
+                <MudIconButton Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Medium"
+                               OnClick="@(async () => await OpenHostFile(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteHandler(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+<MudTooltip Text="Add Handler">
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Class="mt-4"
+            OnClick="OpenCreateHandler"/>
+</MudTooltip>
+
+@code {
+
+    private bool _loading = true;
+    private List<HttpHandler> _handlers = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.HttpHandlerCreated += OnHttpHandlerCreated;
+        Hub.HttpHandlerDeleted += OnHttpHandlerDeleted;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var handlers = await Api.GetHttpHandlers();
+
+        _handlers.AddRange(handlers);
+        _loading = false;
+    }
+
+    private async Task DeleteHandler(HttpHandler handler)
+    {
+        await Api.DeleteHandler(handler);
+    }
+
+    private async Task OnHttpHandlerDeleted(string name)
+    {
+        _handlers.RemoveAll(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnHttpHandlerCreated(string name)
+    {
+        var handler = await Api.GetHttpHandler(name);
+
+        if (handler is null)
+            return;
+
+        _handlers.Add(handler);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Hub.HttpHandlerCreated -= OnHttpHandlerCreated;
+        Hub.HttpHandlerDeleted -= OnHttpHandlerDeleted;
+    }
+
+    private async Task OpenCreateHandler()
+    {
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<CreateHttpHandler>("", options);
+    }
+
+    private async Task OpenHostFile(Handler handler)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Handler", handler }
+        };
+        
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<HostAFile>("", parameters, options);
+    }
+}

@@ -1,28 +1,19 @@
-﻿using TeamServer.Models;
+﻿using TeamServer.Drones;
 
 namespace TeamServer.Interfaces;
 
 public interface IDroneService
 {
     // create
-    Task AddDrone(Drone drone);
+    Task Add(Drone drone);
     
     // read
-    Task<Drone> GetDrone(string id);
-    Task<IEnumerable<Drone>> GetDrones();
+    Task<Drone> Get(string id);
+    Task<IEnumerable<Drone>> Get();
 
     // update
-    Task UpdateDrone(Drone drone);
+    Task Update(Drone drone);
 
     // delete
-    Task DeleteDrone(Drone drone);
-    
-    // adjacency list
-    void AddVertex(string drone);
-    void DeleteVertex(string drone);
-    void AddEdge(string start, string end);
-    void DeleteEdge(string start, string end);
-    bool PathExists(string start, string end);
-    IEnumerable<string> FindPath(string start, string end);
-    IEnumerable<string> DepthFirstSearch(string start);
+    Task Delete(Drone drone);
 }

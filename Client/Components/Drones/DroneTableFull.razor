@@ -1,0 +1,179 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject NavigationManager Nav
+
+@implements IDisposable
+
+@using Client.Models.Drones
+@using SharpC2.API.Requests
+
+<MudTable Items="@_drones" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh></MudTh>
+        <MudTh>User</MudTh>
+        <MudTh>Hostname</MudTh>
+        <MudTh>Address</MudTh>
+        <MudTh>Process</MudTh>
+        <MudTh>PID</MudTh>
+        <MudTh>Arch</MudTh>
+        <MudTh>Integrity</MudTh>
+        <MudTh>Seen</MudTh>
+        <MudTh>Health</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>
+            @{
+                var colour = Color.Error;
+                
+                if (context.Metadata.Integrity == IntegrityLevel.Medium)
+                    colour = Color.Info;
+            }
+            <MudMenu Icon="@Icons.Filled.Monitor" Color="colour" Title="Options">
+                <MudMenuItem OnClick="@(async () => await KillDrone(context))">Kill</MudMenuItem>
+                <MudMenuItem OnClick="@(async () => await DeleteDrone(context))">Remove</MudMenuItem>
+            </MudMenu>
+        </MudTd>
+        <MudTd DataLabel="User">@context.Metadata.Identity</MudTd>
+        <MudTd DataLabel="Hostname">@context.Metadata.Hostname</MudTd>
+        <MudTd DataLabel="Address">@context.Metadata.IPAddress</MudTd>
+        <MudTd DataLabel="Process">@context.Metadata.Process</MudTd>
+        <MudTd DataLabel="PID">@context.Metadata.Pid</MudTd>
+        <MudTd DataLabel="Arch">@context.Metadata.Arch</MudTd>
+        <MudTd DataLabel="Integrity">@context.Metadata.IntegrityLevel</MudTd>
+        <MudTd DataLabel="Seen">@context.Seen</MudTd>
+        <MudTd DataLabel="Health">
+            <MudText Typo="Typo.body1" Color="@FormatColour(context)">
+                @context.Status
+            </MudText>
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Filled.Terminal" aria-label="interact" Title="Interact"
+                           OnClick="@(()=> InteractWithDrone(context))"/>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+
+    private bool _loading = true;
+    private List<Drone> _drones = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.NewDrone += OnNewDrone;
+        Hub.DroneCheckedIn += OnDroneCheckedIn;
+        Hub.DroneExited += OnDroneExited;
+        Hub.DroneDeleted += OnDroneDeleted;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var drones = (await Api.GetDrones()).ToList();
+        drones.ForEach(d => d.SeenUpdated += OnLastSeenUpdated);
+
+        _drones.AddRange(drones);
+        _loading = false;
+    }
+
+    private async void OnLastSeenUpdated()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnNewDrone(string id)
+    {
+        var drone = await Api.GetDrone(id);
+        await AddDroneToTable(drone);
+    }
+
+    private async Task OnDroneCheckedIn(string id)
+    {
+        var drone = _drones.Find(d => d.Metadata.Id.Equals(id));
+        drone?.CheckIn();
+
+        await Task.CompletedTask;
+    }
+    
+    private async Task OnDroneExited(string id)
+    {
+        var drone = _drones.Find(d => d.Metadata.Id.Equals(id));
+
+        if (drone is null)
+        {
+            drone = await Api.GetDrone(id);
+            await AddDroneToTable(drone);
+        }
+        else
+        {
+            drone.Status = Drone.DroneStatus.DEAD;
+        }
+    }
+
+    private async Task AddDroneToTable(Drone drone)
+    {
+        if (drone is null)
+            return;
+
+        drone.SeenUpdated += OnLastSeenUpdated;
+        _drones.Add(drone);
+
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OnDroneDeleted(string id)
+    {
+        var drone = _drones.Find(d => d.Metadata.Id.Equals(id));
+
+        if (drone is null)
+            return;
+
+        drone.SeenUpdated -= OnLastSeenUpdated;
+        drone.Dispose();
+        _drones.Remove(drone);
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Color FormatColour(Drone drone)
+    {
+        return drone.Status switch
+        {
+            Drone.DroneStatus.ALIVE => Color.Success,
+            Drone.DroneStatus.LOST => Color.Warning,
+            Drone.DroneStatus.DEAD => Color.Error,
+            
+            _ => throw new ArgumentOutOfRangeException()
+            };
+    }
+
+    private async Task KillDrone(Drone drone)
+    {
+        var taskRequest = new TaskRequest
+        {
+            Command = 0x13,
+            Alias = "exit",
+            ResultType = 0
+        };
+
+        await Api.TaskDrone(drone.Metadata.Id, taskRequest);
+    }
+
+    private async Task DeleteDrone(Drone drone)
+    {
+        await Api.DeleteDrone(drone.Metadata.Id);
+    }
+
+    private void InteractWithDrone(Drone drone)
+    {
+        Nav.NavigateTo($"/interact/{drone.Metadata.Id}");
+    }
+    
+    public void Dispose()
+    {
+        Hub.NewDrone -= OnNewDrone;
+        Hub.DroneCheckedIn -= OnDroneCheckedIn;
+        
+        _drones.ForEach(d => d.SeenUpdated -= OnLastSeenUpdated);
+    }
+}

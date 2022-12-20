@@ -1,0 +1,95 @@
+﻿@attribute [Authorize]
+@page "/payloads"
+
+@inject SharpC2Api Api
+@inject IJSRuntime Js
+@inject IDialogService Dialogs
+
+@using Client.Models.Handlers
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge">
+    
+    <MudStack>
+        
+        <MudSelect T="Handler" Label="Handler" Variant="Variant.Outlined" @bind-Value="@_selectedHandler"
+                   xmlns="http://www.w3.org/1999/html">
+            @foreach (var handler in _handlers)
+            {
+                <MudSelectItem T="Handler" Value="@handler"/>
+            }
+        </MudSelect>
+
+        <MudSelect T="string" Label="Format" Variant="Variant.Outlined" @bind-Value="@_selectedFormat">
+            @foreach (var format in _formats)
+            {
+                <MudSelectItem T="string" Value="@format.Key"/>
+            }
+        </MudSelect>
+
+        <MudButton Variant="Variant.Filled" OnClick="Download">Download</MudButton>
+        
+    </MudStack>
+    
+</MudContainer>
+
+@code {
+
+    private readonly List<Handler> _handlers = new();
+    private readonly Dictionary<string, int> _formats = new()
+    {
+        { "EXE", 0 },
+        { "DLL", 1 },
+        { "SVC_EXE", 2 },
+        { "POWERSHELL", 3 },
+        { "SHELLCODE", 4 }
+    };
+
+    private Handler _selectedHandler;
+    private string _selectedFormat;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var handlers = await Api.GetHttpHandlers();
+        _handlers.AddRange(handlers);
+    }
+
+    private static string Url => $"http://localhost:5248/api/v1/payloads?handler=http&format=4";
+
+    private async Task Download()
+    {
+        await using var response = await Api.GeneratePayload(_selectedHandler, _formats[_selectedFormat]);
+        using var sr = new DotNetStreamReference(response);
+        
+        var fileName = $"drone_{_selectedHandler.Name}";
+
+        switch (_selectedFormat)
+        {
+            case "EXE":
+                fileName += ".exe";
+                break;
+                
+            case "DLL":
+                fileName += ".dll";
+                break;
+                
+            case "SVC_EXE":
+                fileName += ".exe";
+                break;
+                
+            case "POWERSHELL":
+                fileName += ".ps1";
+                break;
+                
+            case "SHELLCODE":
+                fileName += ".bin";
+                break;
+        }
+
+        await Js.InvokeVoidAsync("downloadFileFromStream", fileName, sr);
+
+        var options = new DialogOptions { NoHeader = false };
+        await Dialogs.ShowMessageBox("Success",
+            $"Saved {fileName} to Downloads folder",
+            "OK", null, null, options);
+    }
+}

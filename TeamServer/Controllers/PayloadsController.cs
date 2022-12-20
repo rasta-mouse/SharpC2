@@ -8,10 +8,10 @@ using TeamServer.Interfaces;
 
 namespace TeamServer.Controllers;
 
-[ApiController]
 [Authorize]
+[ApiController]
 [Route(Routes.V1.Payloads)]
-public sealed class PayloadsController : ControllerBase
+public class PayloadsController : ControllerBase
 {
     private readonly IHandlerService _handlers;
     private readonly IPayloadService _payloads;
@@ -22,14 +22,18 @@ public sealed class PayloadsController : ControllerBase
         _payloads = payloads;
     }
 
-    [HttpGet("{handler}/{format}")]
-    public async Task<ActionResult<byte[]>> GeneratePayload(string handler, int format)
+    [HttpGet]
+    public async Task<IActionResult> GeneratePayload([FromQuery] string handler, [FromQuery] int format)
     {
-        var h = _handlers.GetHandler<Handler>(handler);
-
+        var h = _handlers.Get<Handler>(handler);
+        
         if (h is null)
-            return NotFound("Handler not found");
+            return NotFound();
 
-        return await _payloads.GeneratePayload(h, (PayloadFormat)format);
+        if (!Enum.IsDefined(typeof(PayloadFormat), format))
+            return BadRequest("Unknown format");
+
+        var payload = await _payloads.GeneratePayload(h, (PayloadFormat)format);
+        return new FileContentResult(payload, "application/octet-stream");
     }
 }

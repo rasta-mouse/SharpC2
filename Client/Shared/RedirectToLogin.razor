@@ -1,0 +1,11 @@
+﻿@inject NavigationManager Nav
+
+<div class="loader loader-bouncing"><span>Redirecting...</span></div>
+
+@code{
+        
+    protected override void OnInitialized()
+    {
+        Nav.NavigateTo("/");
+    }
+}

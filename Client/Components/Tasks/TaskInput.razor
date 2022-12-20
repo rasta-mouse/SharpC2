@@ -1,0 +1,189 @@
+﻿@inject SharpC2Api Api
+
+@using Client.Models
+@using Client.Models.Handlers
+@using SharpC2.API.Requests;
+
+<MudDialog>
+    <DialogContent>
+        @if (Command is not null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <div class="d-flex">
+                        <MudText Typo="Typo.overline">Alias:</MudText>
+                        <MudText Typo="Typo.overline" Class="pl-2">@Command.Alias</MudText>
+                    </div>
+                    <div class="d-flex">
+                        <MudText Typo="Typo.overline">Description:</MudText>
+                        <MudText Typo="Typo.overline" Class="pl-2">@Command.Description</MudText>
+                    </div>
+                    <div class="d-flex">
+                        <MudText Typo="Typo.overline">OPSEC:</MudText>
+                        <MudText Typo="Typo.overline" Class="pl-2">@Command.OpSec</MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudForm @ref="_form" @bind-IsValid="@_success">
+                        @foreach (var argument in Command.Arguments)
+                        {
+                            switch (argument.Type)
+                            {
+                                case ArgumentType.STRING:
+                                {
+                                    <MudTextField T="string" Label="@argument.Name" Required="@(!argument.Optional)"
+                                                  RequiredError="Argument is required" @bind-Value="@argument.DefaultValue"
+                                                  Immediate="@true" />
+                                    
+                                    break;
+                                }
+                                case ArgumentType.ARTEFACT:
+                                {
+                                    <MudGrid>
+                                        <MudItem xs="4">
+                                            <MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles">
+                                                <ButtonTemplate>
+                                                    <MudButton HtmlTag="label"
+                                                               Variant="Variant.Filled"
+                                                               Color="Color.Primary"
+                                                               StartIcon="@Icons.Filled.CloudUpload"
+                                                               for="@context">
+                                                        Select File
+                                                    </MudButton>
+                                                </ButtonTemplate>
+                                            </MudFileUpload>
+                                        </MudItem>
+                                        <MudItem xs="4">
+                                            @if (_artefact is not null)
+                                            {
+                                                <div class="d-flex">
+                                                    <MudText Typo="Typo.overline" Class="pl-2">Artefact:</MudText>
+                                                    <MudText Typo="Typo.overline" Class="pl-2">@_artefact.Name</MudText>
+                                                </div>
+                                                <div class="d-flex">
+                                                    <MudText Typo="Typo.overline" Class="pl-2">Size:</MudText>
+                                                    <MudText Typo="Typo.overline" Class="pl-2">@_artefact.Size bytes</MudText>
+                                                </div>
+                                            }
+                                        </MudItem>
+                                    </MudGrid>
+                                    
+                                    break;
+                                }
+                                case ArgumentType.HANDLER:
+                                {
+                                    <MudSelect T="Handler" Label="Select Handler" Variant="Variant.Outlined" Dense="@true" @bind-Value="@_handler">
+                                        @foreach (var handler in _handlers)
+                                        {
+                                            <MudSelectItem Value="@handler" />
+                                        }
+                                    </MudSelect>
+                                    
+                                    break;
+                                }
+                                    
+                                default:
+                                    throw new ArgumentOutOfRangeException();
+                            }
+                        }
+                    </MudForm>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Submit</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string DroneId { get; set; }
+
+    [Parameter]
+    public DroneCommand Command { get; set; }
+
+    private MudForm _form;
+    private bool _success;
+    private IBrowserFile _artefact;
+    private Handler _handler;
+    
+    private readonly TaskRequest _taskRequest = new();
+    private readonly List<Handler> _handlers = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // load handlers if needed
+        if (Command.Arguments.Any(a => a.Type == ArgumentType.HANDLER))
+        {
+            var handlers = await Api.GetHttpHandlers();
+            _handlers.AddRange(handlers);
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void UploadFiles(IBrowserFile file)
+    {
+        _artefact = file;
+    }
+
+    private async Task Submit()
+    {
+        _taskRequest.Command = Command.Command;
+        _taskRequest.Alias = Command.Alias;
+        _taskRequest.ResultType = Command.Output;
+
+        var arguments = new List<string>();
+
+        foreach (var argument in Command.Arguments)
+        {
+            switch (argument.Type)
+            {
+                case ArgumentType.ARTEFACT:
+                {
+                    using var ms = new MemoryStream();
+                    await using var fs = _artefact.OpenReadStream(5120000); // 5MB
+
+                    await fs.CopyToAsync(ms);
+
+                    _taskRequest.ArtefactPath = _artefact.Name;
+                    _taskRequest.Artefact = ms.ToArray();
+                    
+                    break;
+                }
+
+                case ArgumentType.HANDLER:
+                {
+                    arguments.Add(_handler.Name);
+                    
+                    break;
+                }
+
+                case ArgumentType.STRING:
+                {
+                    if (!string.IsNullOrWhiteSpace(argument.DefaultValue))
+                        arguments.Add(argument.DefaultValue);
+                    
+                    break;
+                }
+                    
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        _taskRequest.Arguments = arguments.ToArray();
+        await Api.TaskDrone(DroneId, _taskRequest);
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+    
+    private void Cancel()
+        => MudDialog.Cancel();
+}

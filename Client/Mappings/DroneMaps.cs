@@ -1,14 +1,14 @@
 ﻿using AutoMapper;
-using SharpC2.API.Response;
-using SharpC2.Models;
+using Client.Models.Drones;
+using SharpC2.API.Responses;
 
-namespace SharpC2.Mappings;
+namespace Client.Mappings;
 
-public sealed class DroneMaps : Profile
+public class DroneMaps : Profile
 {
-    public DroneMaps()
-    {
-        CreateMap<MetadataResponse, Metadata>();
-        CreateMap<DroneResponse, Drone>();
-    }
+	public DroneMaps()
+	{
+		CreateMap<MetadataResponse, Metadata>();
+		CreateMap<DroneResponse, Drone>();
+	}
 }

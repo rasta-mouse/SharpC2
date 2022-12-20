@@ -5,17 +5,15 @@ namespace TeamServer.Interfaces;
 public interface IHandlerService
 {
     // create
-    Task AddHandler(Handler handler);
+    Task Add(Handler handler);
     
     // read
-    T GetHandler<T>(string name) where T : Handler;
-    IEnumerable<T> GetHandlers<T>() where T : Handler;
-    IEnumerable<T> GetHandlers<T>(PayloadType payloadType) where T : Handler;
-    IEnumerable<T> GetHandlers<T>(HandlerType handlerType) where T : Handler;
+    T Get<T>(string name) where T : Handler;
+    IEnumerable<T> Get<T>() where T : Handler;
 
     // update
-    Task UpdateHandler(Handler handler);
+    Task Update(Handler handler);
     
     // delete
-    Task DeleteHandler(Handler handler);
+    Task Delete(Handler handler);
 }

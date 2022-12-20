@@ -1,0 +1,50 @@
+﻿@using Client.Models.Tasks
+
+<MudTable T="ProcessEntry" Items="@_entries" Hover="true" Dense="@true" SortLabel="Sort By"
+          Filter="@(new Func<ProcessEntry,bool>(FilterFunc))">
+<ToolBarContent>
+    <MudTextField @bind-Value="_searchString" Placeholder="Filter on Name" Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="xs-6 mt-0" Immediate="@true"/>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.ProcessId))">PID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.ParentProcessId))">PPID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.Name))">Name</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.Path))">Path</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.SessionId))">SID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.Owner))">Owner</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<ProcessEntry, object>(e => e.Arch))">Arch</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="PID">@context.ProcessId</MudTd>
+        <MudTd DataLabel="PPID">@context.ParentProcessId</MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Path">@context.Path</MudTd>
+        <MudTd DataLabel="SID">@context.SessionId</MudTd>
+        <MudTd DataLabel="Owner">@context.Owner</MudTd>
+        <MudTd DataLabel="Arch">@context.Arch</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    
+    [Parameter]
+    public TaskRecord TaskRecord { get; set; }
+
+    private IEnumerable<ProcessEntry> _entries;
+
+    private string _searchString = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        _entries = TaskRecord.Result.Deserialize<IEnumerable<ProcessEntry>>();
+    }
+    
+    private bool FilterFunc(ProcessEntry entry)
+        => SearchEntries(entry, _searchString);
+
+    private static bool SearchEntries(ProcessEntry entry, string searchString)
+    {
+        return string.IsNullOrWhiteSpace(searchString) || entry.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
+    }
+}

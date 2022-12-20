@@ -1,22 +1,16 @@
 ﻿using AutoMapper;
-using SharpC2.API.Response;
-using SharpC2.Models;
+using Client.Models.Handlers;
+using SharpC2.API.Responses;
 
-namespace SharpC2.Mappings;
+namespace Client.Mappings;
 
-public sealed class HandlerMaps : Profile
+public class HandlerMaps : Profile
 {
     public HandlerMaps()
     {
-        CreateMap<HandlerResponse, Handler>();
-        
         CreateMap<HttpHandlerResponse, HttpHandler>()
             .IncludeAllDerived();
-        
-        CreateMap<SmbHandlerResponse, SmbHandler>()
-            .IncludeAllDerived();
-        
-        CreateMap<TcpHandlerResponse, TcpHandler>()
-            .IncludeAllDerived();
+
+        CreateMap<HostedFileResponse, HostedFile>();
     }
 }

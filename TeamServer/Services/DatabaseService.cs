@@ -12,17 +12,17 @@ public class DatabaseService : IDatabaseService
 
     public DatabaseService()
     {
-        var path = Path.Combine(Directory.GetCurrentDirectory(), "SharpC2.db");
+        var path = Path.Combine(Directory.GetCurrentDirectory(), "Data", "SharpC2.db");
 
         using (var conn = new SQLiteConnection(path))
         {
+            conn.CreateTable<UserAuthDao>();
             conn.CreateTable<HttpHandlerDao>();
-            conn.CreateTable<TcpHandlerDao>();
-            conn.CreateTable<SmbHandlerDao>();
-            conn.CreateTable<DroneDao>();
-            conn.CreateTable<DroneTaskRecordDao>();
+            conn.CreateTable<WebLogDao>();
+            conn.CreateTable<HostedFileDao>();
             conn.CreateTable<CryptoDao>();
-            conn.CreateTable<CredentialDao>();
+            conn.CreateTable<DroneDao>();
+            conn.CreateTable<TaskRecordDao>();
         }
         
         // open connections
@@ -31,12 +31,8 @@ public class DatabaseService : IDatabaseService
     }
 
     public SQLiteConnection GetConnection()
-    {
-        return _connection;
-    }
+        => _connection;
 
     public SQLiteAsyncConnection GetAsyncConnection()
-    {
-        return _asyncConnection;
-    }
+        => _asyncConnection;
 }

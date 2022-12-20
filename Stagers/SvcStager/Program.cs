@@ -4,13 +4,13 @@ namespace Drone;
 
 internal static class Program
 {
-    private static void Main()
+    public static void Main()
     {
-        var servicesToRun = new ServiceBase[]
+        var services = new ServiceBase[]
         {
             new DroneService()
         };
         
-        ServiceBase.Run(servicesToRun);
+        ServiceBase.Run(services);
     }
 }

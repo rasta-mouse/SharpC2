@@ -1,29 +1,28 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 
+using TeamServer.Hubs;
 using TeamServer.Interfaces;
-using TeamServer.Models;
+using TeamServer.Messages;
 using TeamServer.Services;
 
 namespace TeamServer.Modules;
 
-public abstract class ServerModule
+public abstract class ServerModule : IServerModule
 {
-    public abstract byte Module { get; }
+    public abstract FrameType FrameType { get; }
 
     protected IDroneService Drones { get; private set; }
     protected ITaskService Tasks { get; private set; }
-    protected ICredentialService Credentials { get; private set; }
-
-    protected IHubContext<HubService, IHubService> Hub { get; private set; }
-
-    public void Init(IDroneService drones, ITaskService tasks, ICredentialService credentials,
-        IHubContext<HubService, IHubService> hub)
+    protected ICryptoService Crypto { get; private set; }
+    protected IHubContext<NotificationHub, INotificationHub> Hub { get; private set; }
+    
+    public void Init(ServerService server)
     {
-        Drones = drones;
-        Tasks = tasks;
-        Credentials = credentials;
-        Hub = hub;
+        Drones = server.Drones;
+        Tasks = server.Tasks;
+        Crypto = server.Crypto;
+        Hub = server.Hub;
     }
 
-    public abstract Task Execute(DroneTaskOutput output);
+    public abstract Task ProcessFrame(C2Frame frame);
 }

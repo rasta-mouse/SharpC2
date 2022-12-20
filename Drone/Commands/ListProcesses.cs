@@ -3,23 +3,20 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Principal;
 using System.Threading;
-using System.Threading.Tasks;
-
-using Drone.Models;
-using Drone.Utilities;
-
-using ProtoBuf;
 
 namespace Drone.Commands;
 
+using static Interop.Methods;
+using static Interop.Data;
+
 public sealed class ListProcesses : DroneCommand
 {
-    public override byte Command => 0x0B;
-    
-    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
+    public override byte Command => 0x1B;
+    public override bool Threaded => false;
+
+    public override void Execute(DroneTask task, CancellationToken cancellationToken)
     {
         List<ProcessEntry> results = new();
-        
         var processes = Process.GetProcesses();
 
         foreach (var process in processes)
@@ -36,20 +33,14 @@ public sealed class ListProcesses : DroneCommand
             });
         }
 
-        await Drone.SendDroneTaskOutput(new DroneTaskResponse
-        {
-            TaskId = task.Id,
-            Status = DroneTaskStatus.Complete,
-            Module = Command,
-            Output = results.Serialize()
-        });
+        Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, results.Serialize()));
     }
-    
+
     private static int GetProcessParent(Process process)
     {
         try
         {
-            var pbi = Native.QueryProcessBasicInformation(process.Handle);
+            var pbi = QueryProcessBasicInformation(process.Handle);
             return pbi.InheritedFromUniqueProcessId;
         }
         catch
@@ -57,7 +48,7 @@ public sealed class ListProcesses : DroneCommand
             return 0;
         }
     }
-    
+
     private static string GetProcessPath(Process process)
     {
         try
@@ -66,31 +57,32 @@ public sealed class ListProcesses : DroneCommand
         }
         catch
         {
-            return string.Empty;
+            return "-";
         }
     }
-    
+
     private static string GetProcessOwner(Process process)
     {
         try
         {
-            var hToken = Win32.OpenProcessToken(
+            var hToken = OpenProcessToken(
                 process.Handle,
-                Win32.TOKEN_ACCESS.TOKEN_ALL_ACCESS);
+                TOKEN_ACCESS.TOKEN_ALL_ACCESS);
 
             if (hToken == IntPtr.Zero)
                 return string.Empty;
 
             using var identity = new WindowsIdentity(hToken);
-            Win32.CloseHandle(hToken);
+            CloseHandle(hToken);
+
             return identity.Name;
         }
         catch
         {
-            return string.Empty;
+            return "-";
         }
     }
-    
+
     private static string GetProcessArch(Process process)
     {
         if (!Environment.Is64BitOperatingSystem)
@@ -98,36 +90,11 @@ public sealed class ListProcesses : DroneCommand
         
         try
         {
-            return Native.NtQueryInformationProcessWow64Information(process.Handle) ? "x86" : "x64";
+            return NtQueryInformationProcessWow64Information(process.Handle) ? "x86" : "x64";
         }
         catch
         {
-            return string.Empty;
+            return "-";
         }
     }
-}
-
-[ProtoContract]
-public sealed class ProcessEntry
-{
-    [ProtoMember(1)]
-    public int ProcessId { get; set; }
-    
-    [ProtoMember(2)]
-    public int ParentProcessId { get; set; }
-    
-    [ProtoMember(3)]
-    public string Name { get; set; }
-    
-    [ProtoMember(4)]
-    public string Path { get; set; }
-    
-    [ProtoMember(5)]
-    public int SessionId { get; set; }
-    
-    [ProtoMember(6)]
-    public string Owner { get; set; }
-    
-    [ProtoMember(7)]
-    public string Arch { get; set; }
 }

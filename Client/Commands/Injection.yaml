@@ -1,36 +1,27 @@
 ﻿- Alias: inject
-  Description: Inject Drone shellcode into a process
-  Command: 23
+  Description: Inject shellcode from the given handler
+  Command: 74
   Arguments:
     - Name: pid
       Optional: false
     - Name: handler
       Optional: false
+      Type: 2
 
 - Alias: shinject
   Description: Inject arbitrary shellcode into a process
-  Command: 23
+  Command: 74
   Arguments:
-    - Name: /path/to/shellcode
-      Artefact: true
-      Optional: false
     - Name: pid
       Optional: false
-      
+    - Name: /path/to/shellcode
+      Optional: false
+      Type: 1
+
 - Alias: shspawn
-  Description: Spawn a process and inject Drone shellcode
-  Command: 24
+  Description: Spawn a process and inject shellcode from the given handler
+  Command: 75
   Arguments:
     - Name: handler
       Optional: false
-      
-- Alias: spawnas
-  Description: Spawn a process with plaintext credentials and inject Drone shellcode
-  Command: 25
-  Arguments:
-    - Name: DOMAIN\\username
-      Optional: false
-    - Name: password
-      Optional: false
-    - Name: handler
-      Optional: false
+      Type: 2

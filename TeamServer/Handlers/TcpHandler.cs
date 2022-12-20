@@ -1,19 +1,22 @@
 ﻿namespace TeamServer.Handlers;
 
-public class TcpHandler : Handler
+public sealed class TcpHandler : Handler
 {
-    public int BindPort { get; set; }
-    public bool LoopbackOnly { get; }
-
     public override HandlerType HandlerType
         => HandlerType.TCP;
 
-    public TcpHandler(string name, int bindPort, bool loopbackOnly)
-    {
-        Name = name;
-        BindPort = bindPort;
-        LoopbackOnly = loopbackOnly;
+    public string Address { get; set; }
+    public int Port { get; set; }
 
-        PayloadType = PayloadType.BIND_TCP;
+    public TcpHandler(bool reverse)
+    {
+        PayloadType = reverse
+            ? PayloadType.REVERSE_TCP
+            : PayloadType.BIND_TCP;
+    }
+
+    public TcpHandler()
+    {
+        
     }
 }

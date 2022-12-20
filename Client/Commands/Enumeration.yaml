@@ -1,65 +1,80 @@
 ﻿- Alias: pwd
-  Description: Print working directory
-  Command: 2
-
+  Description: Print the current working directory
+  Command: 20
+  Output: 1
+  
 - Alias: cd
   Description: Change directory
-  Command: 3
+  Command: 21
   Arguments:
     - Name: path
+
+- Alias: cat
+  Description: Read a text file
+  Command: 22
+  Output: 1
+  Arguments:
+    - Name: path
+      Optional: false
       
+- Alias: rm
+  Description: Remove a file
+  Command: 23
+  Arguments:
+    - Name: path
+      Optional: false
+
 - Alias: mkdir
   Description: Create a directory
-  Command: 4
+  Command: 24
   Arguments:
     - Name: path
       Optional: false
       
 - Alias: rmdir
   Description: Remove a directory
-  Command: 5
-  Arguments:
-    - Name: path
-      Optional: false
-      
-- Alias: upload
-  Description: Upload a file
-  Command: 6
-  Arguments:
-    - Name: /path/to/file
-      Optional: false
-      Artefact: true
-    - Name: filename
-      Optional: false
-      
-- Alias: rm
-  Description: Remove a file
-  Command: 7
+  Command: 25
   Arguments:
     - Name: path
       Optional: false
 
-- Alias: cat
-  Description: Read a text file
-  Command: 8
-  Arguments:
-    - Name: path
-      Optional: false
-      
-- Alias: screenshot
-  Description: Take a screenshot
-  Command: 9
-      
 - Alias: ls
-  Description: List directory
-  Command: 10
+  Description: List a directory
+  Command: 26
+  Output: 2
   Arguments:
     - Name: path
       
 - Alias: ps
   Description: List running processes
-  Command: 11
-  
+  Command: 27
+  Output: 3
+  OpSec: Utilises D/Invoke
+
+- Alias: screenshot
+  Description: Take a screenshot
+  Command: 28
+  Output: 4
+      
+- Alias: upload
+  Description: Upload a file
+  Command: 29
+  Arguments:
+    - Name: /path/to/file
+      Optional: false
+      Type: 1
+    - Name: filename
+      Optional: false
+      
 - Alias: whoami
   Description: Get your current identity
-  Command: 12
+  Command: 30
+  Output: 1
+  
+- Alias: kill
+  Description: Kill a process
+  Command: 31
+  Output: 1
+  Arguments:
+    - Name: pid
+      Optional: false

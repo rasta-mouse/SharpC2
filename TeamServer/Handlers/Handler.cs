@@ -2,7 +2,8 @@
 
 public abstract class Handler
 {
-    public string Name { get; protected set; }
+    public string Id { get; set; }
+    public string Name { get; set; }
     public PayloadType PayloadType { get; protected set; }
     
     public abstract HandlerType HandlerType { get; }
@@ -23,5 +24,5 @@ public enum PayloadType
     BIND_PIPE,
     BIND_TCP,
     REVERSE_TCP,
-    CUSTOM
+    EXTERNAL
 }

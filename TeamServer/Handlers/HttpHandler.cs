@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.SignalR;
-
+using Microsoft.Extensions.FileProviders;
+using TeamServer.Hubs;
 using TeamServer.Interfaces;
-using TeamServer.Services;
+using TeamServer.Middleware;
+using TeamServer.Utilities;
 
 namespace TeamServer.Handlers;
 
@@ -18,19 +20,33 @@ public class HttpHandler : Handler
     public override HandlerType HandlerType
         => HandlerType.HTTP;
 
-    public HttpHandler(string name, int bindPort, string connectAddress, int connectPort, bool secure)
-    {
-        Name = name;
-        BindPort = bindPort;
-        ConnectAddress = connectAddress;
-        ConnectPort = connectPort;
-        Secure = secure;
+    public string FilePath { get; set; }
 
+    public HttpHandler(bool secure)
+    {
+        Id = Helpers.GenerateShortGuid();
+        Secure = secure;
         PayloadType = secure ? PayloadType.REVERSE_HTTPS : PayloadType.REVERSE_HTTP;
+    }
+
+    public HttpHandler()
+    {
+        
+    }
+
+    private void CreateDataDirectory()
+    {
+        FilePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", Id);
+        
+        if (!Directory.Exists(FilePath))
+            Directory.CreateDirectory(FilePath);
     }
 
     public Task Start()
     {
+        // ensure data directory exists
+        CreateDataDirectory();
+        
         _tokenSource = new CancellationTokenSource();
 
         var host = new HostBuilder()
@@ -52,6 +68,13 @@ public class HttpHandler : Handler
     private void ConfigureApp(IApplicationBuilder app)
     {
         app.UseRouting();
+        app.UseWebLogMiddleware();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(FilePath),
+            ServeUnknownFileTypes = true,
+            DefaultContentType = "test/plain"
+        });
         app.UseEndpoints(ConfigureEndpoints);
     }
 
@@ -65,16 +88,16 @@ public class HttpHandler : Handler
 
     private void ConfigureServices(IServiceCollection services)
     {
-        services.AddSingleton<IServerService, ServerService>();
-        services.AddTransient<ICryptoService, CryptoService>();
-        services.AddTransient<ICredentialService, CredentialService>();
-
-        services.AddSingleton(_ => Program.GetService<IDroneService>());
-        services.AddSingleton(_ => Program.GetService<ITaskService>());
-        services.AddSingleton(_ => Program.GetService<IDatabaseService>());
-        services.AddSingleton(_ => Program.GetService<IHubContext<HubService, IHubService>>());
-        
         services.AddControllers();
+
+        services.AddSingleton(Program.GetService<IDatabaseService>());
+        services.AddSingleton(Program.GetService<ICryptoService>());
+        services.AddSingleton(Program.GetService<IDroneService>());
+        services.AddSingleton(Program.GetService<ITaskService>());
+        services.AddSingleton(Program.GetService<IServerService>());
+        services.AddSingleton(Program.GetService<IEventService>());
+        services.AddSingleton(Program.GetService<IHubContext<NotificationHub, INotificationHub>>());
+        
         services.AddAutoMapper(typeof(Program));
     }
 
@@ -85,11 +108,13 @@ public class HttpHandler : Handler
 
     public void Stop()
     {
-        // if null or already cancelled
         if (_tokenSource is null || _tokenSource.IsCancellationRequested)
             return;
 
         _tokenSource.Cancel();
         _tokenSource.Dispose();
+        
+        // delete hosted files
+        Directory.Delete(FilePath, true);
     }
 }

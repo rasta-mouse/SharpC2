@@ -1,0 +1,55 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+
+@using Client.Models.Events
+@implements IDisposable
+
+<MudTable Items="@_events" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DateTime, object>(e => e.Date))">Date</MudTableSortLabel></MudTh>
+        <MudTh>Nick</MudTh>
+        <MudTh>Success?</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Date">@context.Date</MudTd>
+        <MudTd DataLabel="Method">@context.Nick</MudTd>
+        <MudTd DataLabel="Uri">@context.Result</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    
+    private bool _loading = true;
+    private readonly List<UserAuthEvent> _events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var events = await Api.GetAuthEvents();
+        _events.AddRange(events);
+        _loading = false;
+    }
+
+    protected override void OnInitialized()
+    {
+        Hub.NewEvent += OnNewEvent;
+    }
+
+    private async Task OnNewEvent(int type, string id)
+    {
+        if ((EventType)type == EventType.USER_AUTH)
+        {
+            var ev = await Api.GetAuthEvent(id);
+            
+            if (ev is null)
+                return;
+            
+            _events.Insert(0, ev);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        Hub.NewEvent -= OnNewEvent;
+    }
+}

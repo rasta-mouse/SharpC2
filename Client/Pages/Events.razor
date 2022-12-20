@@ -1,0 +1,43 @@
+﻿@attribute [Authorize]
+@page "/events"
+
+@inject NavigationManager Nav
+
+@using Client.Components.Events
+@using Microsoft.AspNetCore.WebUtilities
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge">
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" @ref="_tabs">
+        <MudTabPanel Text="USER AUTH" @ref="_userAuth">
+            <AuthEvents />
+        </MudTabPanel>
+        <MudTabPanel Text="WEB LOG" @ref="_webLog">
+            <WebLogs/>
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+@code {
+    
+    private MudTabs _tabs = new();
+    private MudTabPanel _userAuth = new();
+    private MudTabPanel _webLog = new();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (!query.TryGetValue("log", out var val))
+            return;
+        
+        if (string.IsNullOrWhiteSpace(val))
+            return;
+            
+        if (val.Equals("web_log"))
+            _tabs.ActivatePanel(_webLog);
+    }
+}

@@ -1,93 +1,117 @@
-﻿using System.Collections.Concurrent;
-
-using AutoMapper;
+﻿using AutoMapper;
 
 using TeamServer.Interfaces;
-using TeamServer.Models;
+using TeamServer.Messages;
 using TeamServer.Storage;
+using TeamServer.Tasks;
+
+using TaskStatus = TeamServer.Tasks.TaskStatus;
 
 namespace TeamServer.Services;
 
-public class TaskService : ITaskService
+public sealed class TaskService : ITaskService
 {
     private readonly IDatabaseService _db;
     private readonly IMapper _mapper;
     
+    private readonly Dictionary<string, Queue<C2Frame>> _cached = new();
+
     public TaskService(IDatabaseService db, IMapper mapper)
     {
         _db = db;
         _mapper = mapper;
     }
 
-    public async Task AddTask(DroneTaskRecord task)
+    public async Task Add(TaskRecord record)
     {
         var conn = _db.GetAsyncConnection();
+        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
 
-        var dao = _mapper.Map<DroneTaskRecord, DroneTaskRecordDao>(task);
         await conn.InsertAsync(dao);
     }
 
-    public async Task<DroneTaskRecord> GetTask(string taskId)
+    public void CacheFrame(string droneId, C2Frame frame)
     {
-        var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<DroneTaskRecordDao>()
-            .FirstOrDefaultAsync(t => t.TaskId.Equals(taskId));
-
-        return _mapper.Map<DroneTaskRecordDao, DroneTaskRecord>(dao);
-    }
-
-    public async Task<IEnumerable<DroneTaskRecord>> GetAllTasks()
-    {
-        var conn = _db.GetAsyncConnection();
-        var query = conn.Table<DroneTaskRecordDao>();
-        var dao = await query.ToArrayAsync();
-
-        return _mapper.Map<IEnumerable<DroneTaskRecordDao>, IEnumerable<DroneTaskRecord>>(dao);
-    }
-
-    public async Task<IEnumerable<DroneTaskRecord>> GetTasks(string droneId)
-    {
-        var conn = _db.GetAsyncConnection();
-        var query = conn.Table<DroneTaskRecordDao>()
-            .Where(t => t.DroneId.Equals(droneId));
+        if (!_cached.ContainsKey(droneId))
+            _cached.Add(droneId, new Queue<C2Frame>());
         
-        var dao = await query.ToArrayAsync();
-
-        return _mapper.Map<IEnumerable<DroneTaskRecordDao>, IEnumerable<DroneTaskRecord>>(dao);
+        _cached[droneId].Enqueue(frame);
     }
 
-    public async Task<IEnumerable<DroneTaskRecord>> GetTasks(string droneId, DroneTaskStatus status)
+    public async Task<IEnumerable<TaskRecord>> GetAll()
     {
         var conn = _db.GetAsyncConnection();
+        var dao = await conn.Table<TaskRecordDao>().ToArrayAsync();
 
-        var query = conn.Table<DroneTaskRecordDao>()
-            .Where(t => t.DroneId.Equals(droneId) && t.Status == (int)status);
-
-        var dao = await query.ToArrayAsync();
-
-        return _mapper.Map<IEnumerable<DroneTaskRecordDao>, IEnumerable<DroneTaskRecord>>(dao);
+        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
     }
 
-    public async Task UpdateTasks(IEnumerable<DroneTaskRecord> tasks)
+    public async Task<TaskRecord> Get(string droneId, string taskId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<IEnumerable<DroneTaskRecord>, IEnumerable<DroneTaskRecordDao>>(tasks);
+        var dao = await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r => r.DroneId.Equals(droneId)
+                                                                             && r.TaskId.Equals(taskId));
 
-        await conn.UpdateAllAsync(dao);
+        return _mapper.Map<TaskRecordDao, TaskRecord>(dao);
     }
 
-    public async Task UpdateTask(DroneTaskRecord task)
+    public async Task<IEnumerable<TaskRecord>> GetAllByDrone(string droneId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<DroneTaskRecord, DroneTaskRecordDao>(task);
+        var dao = await conn.Table<TaskRecordDao>().Where(r => r.DroneId.Equals(droneId)).ToArrayAsync();
+
+        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
+    }
+
+    public async Task<TaskRecord> Get(string taskId)
+    {
+        var conn = _db.GetAsyncConnection();
+        var dao = await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r => r.TaskId.Equals(taskId));
+
+        return _mapper.Map<TaskRecordDao, TaskRecord>(dao);
+    }
+
+    public async Task<IEnumerable<TaskRecord>> GetPending(string droneId)
+    {
+        var conn = _db.GetAsyncConnection();
+        var dao = await conn.Table<TaskRecordDao>().Where(r => r.Status == (int)TaskStatus.PENDING).ToArrayAsync();
+
+        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
+    }
+
+    public IEnumerable<C2Frame> GetCachedFrames(string droneId)
+    {
+        if (!_cached.ContainsKey(droneId))
+            return Array.Empty<C2Frame>();
+
+        List<C2Frame> frames = new();
+
+        while (_cached[droneId].Any())
+            frames.Add(_cached[droneId].Dequeue());
+
+        return frames;
+    }
+
+    public async Task Update(TaskRecord record)
+    {
+        var conn = _db.GetAsyncConnection();
+        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
 
         await conn.UpdateAsync(dao);
     }
 
-    public async Task DeleteTask(DroneTaskRecord task)
+    public async Task Update(IEnumerable<TaskRecord> records)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<DroneTaskRecord, DroneTaskRecordDao>(task);
+        var dao = _mapper.Map<IEnumerable<TaskRecord>, IEnumerable<TaskRecordDao>>(records);
+
+        await conn.UpdateAllAsync(dao);
+    }
+
+    public async Task Delete(TaskRecord record)
+    {
+        var conn = _db.GetAsyncConnection();
+        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
 
         await conn.DeleteAsync(dao);
     }

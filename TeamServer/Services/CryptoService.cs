@@ -9,13 +9,13 @@ namespace TeamServer.Services;
 public class CryptoService : ICryptoService
 {
     private readonly IDatabaseService _db;
-    
+
     public CryptoService(IDatabaseService db)
     {
         _db = db;
     }
-    
-    public async Task<(byte[] iv, byte[] data, byte[] checksum)> EncryptObject<T>(T obj)
+
+    public async Task<byte[]> Encrypt<T>(T item)
     {
         var key = await GetKey();
         
@@ -26,19 +26,33 @@ public class CryptoService : ICryptoService
 
         using var transform = aes.CreateEncryptor();
         
-        var raw = obj.Serialize();
+        var raw = item.Serialize();
         var enc = transform.TransformFinalBlock(raw, 0, raw.Length);
         var checksum = ComputeHmac(enc, key);
 
-        return (aes.IV, enc, checksum);
+        var buf = new byte[aes.IV.Length + checksum.Length + enc.Length];
+        
+        Buffer.BlockCopy(aes.IV, 0, buf, 0, aes.IV.Length);
+        Buffer.BlockCopy(checksum, 0, buf, aes.IV.Length, checksum.Length);
+        Buffer.BlockCopy(enc, 0, buf, aes.IV.Length + checksum.Length, enc.Length);
+
+        return buf;
     }
 
-    public async Task<T> DecryptObject<T>(byte[] iv, byte[] data, byte[] checksum)
+    public async Task<T> Decrypt<T>(byte[] data)
     {
+        // iv 16 bytes
+        // hmac 32 bytes
+        // data n bytes
+        
+        var iv = data[..16];
+        var checksum = data[16..(16 + 32)];
+        var enc = data[(16 + 32)..];
+
         var key = await GetKey();
         
-        if (!ComputeHmac(data, key).SequenceEqual(checksum))
-            throw new CryptoException("Invalid Checksum");
+        if (!ComputeHmac(enc, key).SequenceEqual(checksum))
+            throw new Exception("Invalid Checksum");
 
         using var aes = Aes.Create();
         aes.Mode = CipherMode.CBC;
@@ -46,17 +60,17 @@ public class CryptoService : ICryptoService
         aes.IV = iv;
 
         using var transform = aes.CreateDecryptor();
-        var dec = transform.TransformFinalBlock(data, 0, data.Length);
+        var dec = transform.TransformFinalBlock(enc, 0, enc.Length);
 
         return dec.Deserialize<T>();
     }
 
     public async Task<byte[]> GetKey()
     {
-        #if DEBUG
+#if DEBUG
         return Convert.FromBase64String("TfiAGr88Ia1PHiFHxTVMTf5/qXzhgN2nnn4TvsXYUQo=");
-        #endif
-
+#endif
+        
         var conn = _db.GetAsyncConnection();
         var dao = await conn.Table<CryptoDao>().FirstOrDefaultAsync();
 
@@ -69,13 +83,13 @@ public class CryptoService : ICryptoService
 
         return dao.Key;
     }
-
+    
     private static byte[] ComputeHmac(byte[] data, byte[] key)
     {
         using var hmac = new HMACSHA256(key);
         return hmac.ComputeHash(data);
     }
-
+    
     private static byte[] GenerateRandomKey()
     {
         var buf = new byte[32];
@@ -84,11 +98,4 @@ public class CryptoService : ICryptoService
 
         return buf;
     }
-}
-
-public class CryptoException : Exception
-{
-    public CryptoException() { }
-    public CryptoException(string message) : base(message) { }
-    public CryptoException(string message, Exception inner) : base(message, inner) { }
 }

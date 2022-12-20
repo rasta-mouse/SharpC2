@@ -4,153 +4,109 @@ using AutoMapper;
 
 using Microsoft.AspNetCore.SignalR;
 
+using TeamServer.Drones;
+using TeamServer.Hubs;
 using TeamServer.Interfaces;
-using TeamServer.Models;
+using TeamServer.Messages;
 using TeamServer.Modules;
-using TeamServer.Utilities;
+using TeamServer.Tasks;
+
+using TaskStatus = TeamServer.Tasks.TaskStatus;
 
 namespace TeamServer.Services;
 
 public class ServerService : IServerService
 {
-    private readonly IDroneService _drones;
-    private readonly ITaskService _tasks;
-    private readonly ICredentialService _credentials;
-    private readonly ICryptoService _crypto;
+    public IDroneService Drones { get; }
+    public ITaskService Tasks { get; }
+    public ICryptoService Crypto { get; }
+    public IHubContext<NotificationHub, INotificationHub> Hub { get; }
+    
     private readonly IMapper _mapper;
-    private readonly IHubContext<HubService, IHubService> _hub;
-
     private readonly List<ServerModule> _modules = new();
 
-    public ServerService(IDroneService drones, ITaskService tasks, ICredentialService credentials,
-        ICryptoService crypto, IHubContext<HubService, IHubService> hub, IMapper mapper)
+    public ServerService(IDroneService drones, ITaskService tasks, IMapper mapper, ICryptoService crypto, IHubContext<NotificationHub,INotificationHub> hub)
     {
-        _drones = drones;
-        _tasks = tasks;
-        _credentials = credentials;
-        _crypto = crypto;
-        _hub = hub;
+        Drones = drones;
+        Tasks = tasks;
+        Crypto = crypto;
+        Hub = hub;
+        
         _mapper = mapper;
-
+        
         LoadModules();
     }
-
-    public async Task HandleInboundMessages(IEnumerable<C2Message> messages)
+    
+    public async Task HandleInboundMessages(IEnumerable<C2Frame> frames)
     {
-        foreach (var message in messages)
-            await HandleInboundMessage(message);
+        foreach (var frame in frames)
+            await HandleFrame(frame);
+    }
+    
+    private async Task HandleFrame(C2Frame frame)
+    {
+        var module = _modules.First(m => m.FrameType == frame.FrameType);
+        await module.ProcessFrame(frame);
     }
 
-    private async Task HandleInboundMessage(C2Message message)
+    public async Task<IEnumerable<C2Frame>> GetOutboundFrames(Metadata metadata)
     {
-        // do a check-in here for p2p drones
-        var drone = await _drones.GetDrone(message.DroneId);
+        // handle check-in first
+        await HandleCheckIn(metadata);
+        
+        var outbound = new List<C2Frame>();
+        var pending = (await Tasks.GetPending(metadata.Id)).ToList();
 
-        if (drone is not null)
+        // if none, send a nop
+        if (!pending.Any())
+            outbound.Add(new C2Frame(FrameType.NOP));
+
+        foreach (var record in pending)
         {
-            drone.CheckIn();
+            // update status and date
+            record.Status = TaskStatus.TASKED;
+            record.StartTime = DateTime.UtcNow;
+
+            // map it to a task
+            var task = _mapper.Map<TaskRecord, DroneTask>(record);
+
+            // encrypt it
+            var enc = await Crypto.Encrypt(task);
+
+            // pack into a frame
+            outbound.Add(new C2Frame(FrameType.TASK, enc));
             
-            await _drones.UpdateDrone(drone);
-            await _hub.Clients.All.NotifyDroneCheckedIn(drone.Metadata.Id);
+            // tell hub
+            await Hub.Clients.All.TaskUpdated(record.DroneId, record.TaskId);
         }
         
-        var responses = await _crypto.DecryptObject<IEnumerable<DroneTaskOutput>>(
-            message.Iv,
-            message.Data,
-            message.Checksum);
-
-        await HandleTaskResponses(responses);
-    }
-
-    private async Task HandleTaskResponses(IEnumerable<DroneTaskOutput> outputs)
-    {
-        foreach (var output in outputs)
-            await HandleTaskResponse(output);
-    }
-
-    private async Task HandleTaskResponse(DroneTaskOutput output)
-    {
-        var module = _modules.FirstOrDefault(m => m.Module == output.Module);
-
-        if (module is null)
-        {
-            Console.WriteLine($"[!] Server Module \"{output.Module}\" not found.");
-            return;
-        }
-
-        // execute module
-        await module.Execute(output);
-    }
-
-    public async Task<byte[]> GetOutboundMessages(string egressDrone)
-    {
-        // create list of messages
-        var outbound = new List<C2Message>();
+        // update db
+        await Tasks.Update(pending);
         
-        // get the egress drone
-        var drone = await _drones.GetDrone(egressDrone);
+        // add any cached frames
+        outbound.AddRange(Tasks.GetCachedFrames(metadata.Id));
+
+        return outbound.ToArray();
+    }
+
+    private async Task HandleCheckIn(Metadata metadata)
+    {
+        var drone = await Drones.Get(metadata.Id);
 
         if (drone is null)
-            return Array.Empty<byte>();
-
-        // check-in the drone
-        drone.CheckIn();
-        await _drones.UpdateDrone(drone);
-        await _hub.Clients.All.NotifyDroneCheckedIn(drone.Metadata.Id);
-
-        // get messages for each drone in path
-        var vertexes = _drones.DepthFirstSearch(drone.Metadata.Id);
-
-        foreach (var vertex in vertexes)
         {
-            var message = await GetDroneMessage(vertex); 
-            
-            if (message is not null)
-                outbound.Add(message);
+            drone = new Drone(metadata);
+
+            await Drones.Add(drone);
+            await Hub.Clients.All.NewDrone(drone.Metadata.Id);
         }
-        
-        var raw = outbound.Serialize();
-        
-        // notify hub
-        if (raw.Length > 0)
-            await _hub.Clients.All.NotifySentDroneData(drone.Metadata.Id, raw.Length);
-
-        // return messages
-        return raw;
-    }
-
-    private async Task<C2Message> GetDroneMessage(string droneId)
-    {
-        // get pending task records
-        var records = (await _tasks.GetTasks(droneId, DroneTaskStatus.Pending)).ToList();
-
-        // if no tasks, return null
-        if (!records.Any())
-            return null;
-
-        // update task status
-        records.ForEach(t => t.Status = DroneTaskStatus.Tasked);
-        records.ForEach(t => t.StartTime = DateTime.UtcNow);
-        await _tasks.UpdateTasks(records);
-
-        // notify hub
-        foreach (var task in records)
-            await _hub.Clients.All.NotifyDroneTaskUpdated(droneId, task.TaskId);
-
-        // transform into drone tasks
-        var tasks = _mapper.Map<IEnumerable<DroneTaskRecord>, IEnumerable<DroneTask>>(records);
-
-        // encrypt
-        var (iv, data, checksum) = await _crypto.EncryptObject(tasks);
-
-        // return message
-        return new C2Message
+        else
         {
-            DroneId = droneId,
-            Iv = iv,
-            Data = data,
-            Checksum = checksum
-        };
+            drone.CheckIn();
+
+            await Drones.Update(drone);
+            await Hub.Clients.All.DroneCheckedIn(drone.Metadata.Id);
+        }
     }
 
     private void LoadModules()
@@ -163,11 +119,11 @@ public class ServerService : IServerService
                 continue;
 
             var module = (ServerModule)Activator.CreateInstance(type);
-            
+
             if (module is null)
                 continue;
-            
-            module.Init(_drones, _tasks, _credentials, _hub);
+
+            module.Init(this);
             _modules.Add(module);
         }
     }

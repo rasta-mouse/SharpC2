@@ -1,13 +1,13 @@
 ﻿using AutoMapper;
-using SharpC2.API.Response;
-using SharpC2.Models;
+using Client.Models.Tasks;
+using SharpC2.API.Responses;
 
-namespace SharpC2.Mappings;
+namespace Client.Mappings;
 
-public sealed class TaskMaps : Profile
+public class TaskMaps : Profile
 {
     public TaskMaps()
     {
-        CreateMap<DroneTaskResponse, DroneTask>();
+        CreateMap<TaskRecordResponse, TaskRecord>();
     }
 }

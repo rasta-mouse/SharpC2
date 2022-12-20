@@ -8,20 +8,11 @@ public sealed class DroneDao
     [PrimaryKey, Column("id")]
     public string Id { get; set; }
 
-    [Column("parent")]
-    public string Parent { get; set; }
-
-    [Column("external_ip")]
-    public string ExternalAddress { get; set; }
-    
-    [Column("internal_ip")]
-    public string InternalAddress { get; set; }
-    
-    [Column("handler")]
-    public string Handler { get; set; }
-    
     [Column("identity")]
     public string Identity { get; set; }
+    
+    [Column("address")]
+    public byte[] Address { get; set; }
     
     [Column("hostname")]
     public string Hostname { get; set; }
@@ -30,10 +21,10 @@ public sealed class DroneDao
     public string Process { get; set; }
     
     [Column("pid")]
-    public int ProcessId { get; set; }
+    public int Pid { get; set; }
     
     [Column("arch")]
-    public int Architecture { get; set; }
+    public bool Is64Bit { get; set; }
     
     [Column("integrity")]
     public int Integrity { get; set; }

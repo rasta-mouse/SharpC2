@@ -1,0 +1,46 @@
+﻿@using Client.Models.Tasks
+
+<MudTable T="DirectoryEntry" Items="@_entries" Hover="true" Dense="@true" SortLabel="Sort By"
+          Filter="@(new Func<DirectoryEntry,bool>(FilterFunc))">
+<ToolBarContent>
+    <MudTextField @bind-Value="_searchString" Placeholder="Filter on Name" Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="xs-6 mt-0" Immediate="@true"/>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DirectoryEntry, object>(e => e.Name))">Name</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DirectoryEntry, object>(e => e.Length))">Length</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DirectoryEntry, object>(e => e.CreationTime))">CreationTime</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DirectoryEntry, object>(e => e.LastAccessTime))">LastAccessTime</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DirectoryEntry, object>(e => e.LastWriteTime))">LastWriteTime</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Length">@context.Length</MudTd>
+        <MudTd DataLabel="CreationTime">@context.CreationTime</MudTd>
+        <MudTd DataLabel="LastAccessTime">@context.LastAccessTime</MudTd>
+        <MudTd DataLabel="LastWriteTime">@context.LastWriteTime</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    
+    [Parameter]
+    public TaskRecord TaskRecord { get; set; }
+
+    private IEnumerable<DirectoryEntry> _entries;
+
+    private string _searchString = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        _entries = TaskRecord.Result.Deserialize<IEnumerable<DirectoryEntry>>();
+    }
+    
+    private bool FilterFunc(DirectoryEntry entry)
+        => SearchEntries(entry, _searchString);
+
+    private bool SearchEntries(DirectoryEntry entry, string searchString)
+    {
+        return string.IsNullOrWhiteSpace(searchString) || entry.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
+    }
+}

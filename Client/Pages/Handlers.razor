@@ -1,0 +1,28 @@
+﻿@attribute [Authorize]
+@page "/handlers"
+
+@using Client.Components.Handlers
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge">
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+        <MudTabPanel Text="HTTP">
+            <MudGrid>
+                <MudItem xs="12">
+                    <HttpHandlers />
+                </MudItem>
+                <MudItem xs="12" Class="pt-8">
+                    <HostedFiles />
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="SMB" Disabled="true">
+        </MudTabPanel>
+
+        <MudTabPanel Text="TCP" Disabled="true">
+        </MudTabPanel>
+
+        <MudTabPanel Text="EXTERNAL" Disabled="true">
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>

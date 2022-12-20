@@ -1,0 +1,81 @@
+﻿@using Client.Models.Handlers
+
+@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+
+@implements IDisposable
+
+<MudTable Items="@_files" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Filename</MudTh>
+        <MudTh>URI</MudTh>
+        <MudTh>Size</MudTh>
+        <MudTh>Handler</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Filename">@context.Filename</MudTd>
+        <MudTd DataLabel="URI">@context.Uri</MudTd>
+        <MudTd DataLabel="Size">@context.Size</MudTd>
+        <MudTd DataLabel="Handler">@context.Handler</MudTd>
+        <MudTd>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteHostedFile(context.Id))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+
+    private bool _loading = true;
+    private readonly List<HostedFile> _files = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.HostedFileAdded += OnHostedFileAdded;
+        Hub.HostedFileDeleted += OnHostedFileDeleted;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var files = await Api.GetHostedFiles();
+        
+        _files.AddRange(files);
+        _loading = false;
+    }
+    
+    private async Task OnHostedFileAdded(string id)
+    {
+        var file = await Api.GetHostedFile(id);
+        
+        if (file is null)
+            return;
+        
+        _files.Add(file);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OnHostedFileDeleted(string id)
+    {
+        var file = _files.Find(f => f.Id.Equals(id));
+
+        if (file is null)
+            return;
+
+        _files.Remove(file);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DeleteHostedFile(string id)
+    {
+        await Api.DeleteHostedFile(id);
+    }
+
+    public void Dispose()
+    {
+        Hub.HostedFileAdded -= OnHostedFileAdded;
+        Hub.HostedFileDeleted -= OnHostedFileDeleted;
+    }
+}

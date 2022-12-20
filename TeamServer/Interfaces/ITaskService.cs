@@ -1,22 +1,26 @@
-﻿using TeamServer.Models;
+﻿using TeamServer.Messages;
+using TeamServer.Tasks;
 
 namespace TeamServer.Interfaces;
 
 public interface ITaskService
 {
     // create
-    Task AddTask(DroneTaskRecord task);
-
+    Task Add(TaskRecord record);
+    void CacheFrame(string droneId, C2Frame frame);
+    
     // read
-    Task<DroneTaskRecord> GetTask(string taskId);
-    Task<IEnumerable<DroneTaskRecord>> GetAllTasks();
-    Task<IEnumerable<DroneTaskRecord>> GetTasks(string droneId);
-    Task<IEnumerable<DroneTaskRecord>> GetTasks(string droneId, DroneTaskStatus status);
+    Task<IEnumerable<TaskRecord>> GetAll();
+    Task<IEnumerable<TaskRecord>> GetAllByDrone(string droneId);
+    Task<TaskRecord> Get(string taskId);
+
+    Task<IEnumerable<TaskRecord>> GetPending(string droneId);
+    IEnumerable<C2Frame> GetCachedFrames(string droneId);
 
     // update
-    Task UpdateTasks(IEnumerable<DroneTaskRecord> tasks);
-    Task UpdateTask(DroneTaskRecord task);
-
+    Task Update(TaskRecord record);
+    Task Update(IEnumerable<TaskRecord> records);
+    
     // delete
-    Task DeleteTask(DroneTaskRecord task);
+    Task Delete(TaskRecord record);
 }

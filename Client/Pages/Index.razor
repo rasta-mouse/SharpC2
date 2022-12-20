@@ -1,0 +1,161 @@
+﻿@page "/"
+
+@using SharpC2.API.Requests
+@using System.Security.Cryptography.X509Certificates
+@using System.Net.Security
+@using System.Text
+
+@inject AuthenticationProvider Auth
+@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="justify-center pt-8">
+    
+    <MudForm @ref="_form" @bind-IsValid="@_success">
+        
+        <MudTextField T="string" Label="Server" @bind-Value="@_server" Required="true"
+                      Immediate="@true" RequiredError="Server IP/hostname is required!"/>
+        
+        <MudTextField T="string" Label="Nick" @bind-Value="@_nick" Required="true"
+                      Immediate="@true" RequiredError="Nick is required!"/>
+        
+        <MudTextField T="string" Label="Password" @bind-Value="@_password" Required="true" InputType="InputType.Password"
+                      Immediate="@true" RequiredError="Password is required!"/>
+        
+        <div class="d-flex">
+            
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_canLogin)" Class="mt-8"
+                       OnClick="Authenticate">Login</MudButton>
+                    
+            @if (!_canLogin)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="@true" Class="mt-8 ml-8"/>
+            }
+            
+        </div>
+
+    </MudForm>
+    
+</MudContainer>
+
+@code{
+
+    private bool _success;
+    private MudForm _form;
+
+    private string _server;
+    private string _nick;
+    private string _password;
+
+    private bool _canLogin = true;
+
+    private bool _acceptCert;
+    private TaskCompletionSource _task;
+
+    protected override void OnInitialized()
+    {
+        Api.SslException += SslException;
+    }
+
+    private async void SslException(HttpRequestMessage msg, X509Certificate2 cert, X509Chain chain, SslPolicyErrors errors)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("<pre>");
+        sb.AppendLine("Server Certificate");
+        sb.AppendLine("==================<br />");
+        sb.AppendLine($"Issuer: {cert.Issuer}");
+        sb.AppendLine($"Serial: {cert.SerialNumber}");
+        sb.AppendLine($"Thumbprint: {cert.Thumbprint}");
+        sb.AppendLine($"Not Before: {cert.NotBefore:R}");
+        sb.AppendLine($"Not After: {cert.NotAfter:R}");
+        sb.AppendLine("</pre>");
+
+        var thumb = cert.Thumbprint;
+
+        await InvokeAsync(async () =>
+        {
+            var result = await Dialogs.ShowMessageBox(
+                "SSL Error", 
+                (MarkupString)sb.ToString(),
+                yesText:"Accept", cancelText:"Decline");
+
+            if (result.HasValue)
+                _acceptCert = result.Value;
+        });
+        
+        if (_acceptCert)
+        {
+            Api.SetAcceptedThumbprint(thumb);
+            Api.SslException -= SslException;
+        }
+        
+        _task.SetResult();
+    }
+
+    private async Task Authenticate()
+    {
+        if (!_success)
+        {
+            await _form.Validate();
+            return;
+        }
+
+        // disable button
+        _canLogin = false;
+        
+        _task = new TaskCompletionSource();
+        
+        // try to force an ssl error first
+        try
+        {
+            await Api.Initialise(_server);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        // wait
+        await _task.Task;
+
+        if (!_acceptCert)
+        {
+            // enable button
+            _canLogin = true;
+            return;
+        }
+
+        try
+        {
+            var response = await Api.Authenticate(new AuthenticationRequest
+            {
+                Nick = _nick,
+                Pass = _password
+            });
+
+            if (response.Success)
+            {
+                // auth was successful, connect the hub
+                await Hub.Connect(_server, response.Token);
+                
+                // set auth state
+                await Auth.Login(_nick);
+                
+                // redirect
+                Nav.NavigateTo("/drones");
+            }
+        }
+        catch (Exception e)
+        {
+            // likely ssl related
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        
+        // enable button
+        _canLogin = true;
+    }
+}

@@ -9,9 +9,13 @@ internal static class Program
 {
     public static async Task Main(string[] args)
     {
+        await Task.CompletedTask;
+        
         var bytes = await GetEmbeddedResource("drone");
         var asm = Assembly.Load(bytes);
-        asm.GetType("Drone.Program")!.GetMethod("Execute")!.Invoke(null, Array.Empty<object>());
+        
+        var task = (Task)asm.GetType("Drone.Program")!.GetMethod("Execute")!.Invoke(null, Array.Empty<object>());
+        await task;
     }
     
     private static async Task<byte[]> GetEmbeddedResource(string name)

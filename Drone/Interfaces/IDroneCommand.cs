@@ -1,12 +1,12 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 
-using Drone.Models;
+using Drone.Messages;
 
 namespace Drone.Interfaces;
 
 public interface IDroneCommand
 {
     void Init(Drone drone);
-    Task Execute(DroneTask task, CancellationToken cancellationToken);
+    void Execute(DroneTask task, CancellationToken cancellationToken);
 }

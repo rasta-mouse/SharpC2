@@ -1,17 +1,17 @@
-﻿namespace Drone;
+﻿using System.Threading.Tasks;
 
-public static class Program
+namespace Drone;
+
+internal static class Program
 {
-#if DEBUG
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
-        Execute();
+        await Execute();
     }
-#endif
-    
-    public static void Execute()
+
+    public static async Task Execute()
     {
         var drone = new Drone();
-        drone.Start();
+        await drone.Run();
     }
 }

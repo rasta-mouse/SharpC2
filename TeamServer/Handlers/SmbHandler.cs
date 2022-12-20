@@ -1,17 +1,14 @@
 ﻿namespace TeamServer.Handlers;
 
-public class SmbHandler : Handler
+public sealed class SmbHandler : Handler
 {
-    public string PipeName { get; set; }
-
     public override HandlerType HandlerType
         => HandlerType.SMB;
 
-    public SmbHandler(string name, string pipeName)
+    public string PipeName { get; set; }
+
+    public SmbHandler()
     {
-        Name = name;
-        PipeName = pipeName;
-        
         PayloadType = PayloadType.BIND_PIPE;
     }
 }

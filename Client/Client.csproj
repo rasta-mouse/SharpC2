@@ -1,60 +1,101 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
+		<!-- net6.0-android;net6.0-ios; -->
+        <TargetFrameworks>net6.0-maccatalyst</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net6.0-windows10.0.19041.0</TargetFrameworks>
+        <!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
+        <!-- <TargetFrameworks>$(TargetFrameworks);net6.0-tizen</TargetFrameworks> -->
         <OutputType>Exe</OutputType>
-        <TargetFramework>net6.0</TargetFramework>
+        <RootNamespace>Client</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>disable</Nullable>
+        <EnableDefaultCssItems>false</EnableDefaultCssItems>
+
+        <!-- Display name -->
+        <ApplicationTitle>SharpC2</ApplicationTitle>
+
+        <!-- App Identifier -->
+        <ApplicationId>com.rastamouse.sharpc2</ApplicationId>
+        <ApplicationIdGuid>DE7B9E6B-F73B-4573-A4C7-D314B528CFCB</ApplicationIdGuid>
+
+        <!-- Versions -->
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.2</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
         <AssemblyName>SharpC2</AssemblyName>
-        <RootNamespace>SharpC2</RootNamespace>
-        <LangVersion>10</LangVersion>
-        <PublishSingleFile>true</PublishSingleFile>
+        <Company>Rasta Mouse</Company>
     </PropertyGroup>
+
+    <ItemGroup>
+        <!-- App Icon -->
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+        <!-- Splash Screen -->
+        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+        <!-- Images -->
+        <MauiImage Include="Resources\Images\*" />
+        <MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
+
+        <!-- Custom Fonts -->
+        <MauiFont Include="Resources\Fonts\*" />
+
+        <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="AutoMapper" Version="12.0.0" />
       <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.0" />
-      <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="6.0.10" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
-      <PackageReference Include="PrettyPrompt" Version="4.0.0" />
-      <PackageReference Include="protobuf-net" Version="3.1.22" />
-      <PackageReference Include="RestSharp" Version="108.0.2" />
-      <PackageReference Include="Spectre.Console" Version="0.45.0" />
+      <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="6.0.12" />
+      <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="7.0.0" />
+      <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0" />
+      <PackageReference Include="MudBlazor" Version="6.1.4" />
+      <PackageReference Include="protobuf-net" Version="3.1.25" />
+      <PackageReference Include="RestSharp" Version="108.0.3" />
       <PackageReference Include="YamlDotNet.NetCore" Version="1.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SharpC2.API\SharpC2.API.csproj" />
     </ItemGroup>
 
     <ItemGroup>
       <None Update="Commands\Enumeration.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-      <None Update="Commands\Client.yaml">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="Commands\Settings.yaml">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="Commands\LateralMovement.yaml">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
       <None Update="Commands\Execution.yaml">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="Commands\Tasks.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
       <None Update="Commands\Tokens.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-      <None Update="Commands\Injection.yaml">
+      <None Update="Commands\Core.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-      <None Update="Resources\x64\powerkatz.dll">
+      <None Update="Commands\Injection.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\SharpC2.API\SharpC2.API.csproj" />
-    </ItemGroup>
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Release'">
+        <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+        <PackageCertificateThumbprint>5E8106A6F89B053ED91C723D5D4CAE3FFC15F1CE</PackageCertificateThumbprint>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
+        <RuntimeIdentifier>$(RuntimeIdentifierOverride)</RuntimeIdentifier>
+    </PropertyGroup>
+    <PropertyGroup  Condition="'$(TargetFramework)' == 'net6.0-maccatalyst' and '$(Configuration)' == 'Release'">
+        <!-- for Mac Catalyst -->
+        <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers>
+    </PropertyGroup>
 
 </Project>

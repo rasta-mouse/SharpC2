@@ -1,0 +1,90 @@
+﻿@using Client.Models.Events
+
+@inherits LayoutComponentBase
+
+@inject SharpC2Hub Hub
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="@_theme" />
+<MudDialogProvider DisableBackdropClick="true" CloseOnEscapeKey="false" NoHeader="true" />
+<MudSnackbarProvider/>
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <MudText Typo="Typo.h5" Class="ml-3">SharpC2</MudText>
+        <MudSpacer />
+
+        <MudToggleIconButton @bind-Toggled="@_isDarkMode" Icon="@Icons.Filled.DarkMode" Color="@Color.Inherit"
+                             ToggledIcon="@Icons.Filled.LightMode" ToggledColor="@Color.Warning"
+                             Title="Enable Dark Mode" ToggledTitle="Enable Light Mode"/>
+        
+        <MudIconButton Icon="@Icons.Filled.MenuBook" Color="Color.Inherit" Edge="Edge.End" 
+                       OnClick="GoToDocumentation" Title="Read the Docs"/>
+        
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu/>
+    </MudDrawer>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    
+    private MudThemeProvider _mudThemeProvider;
+    private readonly MudTheme _theme = new();
+    private bool _isDarkMode;
+    
+    private bool _drawerOpen = true;
+
+    protected override void OnInitialized()
+    {
+        Hub.NewEvent += OnNewEvent;
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomCenter;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _isDarkMode = await _mudThemeProvider.GetSystemPreference();
+            StateHasChanged();
+        }
+    }
+
+    private Task OnNewEvent(int type, string id)
+    {
+        Snackbar.Add($"New Event: {(EventType)type}", Severity.Info, Configure);
+        return Task.CompletedTask;
+    }
+
+    private void Configure(SnackbarOptions opts)
+    {
+        opts.Onclick = GoToEvents;
+    }
+
+    private Task GoToEvents(Snackbar arg)
+    {
+        var log = string.Empty;
+
+        if (arg.Message.Contains("WEB_LOG"))
+            log = "web_log";
+        
+        Nav.NavigateTo($"/events?log={log}");
+        return Task.CompletedTask;
+    }
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private static async Task GoToDocumentation()
+    {
+        var uri = new Uri("https://sharpc2.readthedocs.io/en/latest/");
+        await Browser.Default.OpenAsync(uri, BrowserLaunchMode.SystemPreferred);
+    }
+}

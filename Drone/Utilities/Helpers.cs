@@ -1,55 +1,25 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Security.Principal;
-
-using Drone.Models;
 
 namespace Drone.Utilities;
 
 public static class Helpers
 {
-    internal static Metadata GenerateMetadata()
+    public static string GenerateShortGuid()
     {
-        var hostname = Dns.GetHostName();
-        var addresses = Dns.GetHostAddresses(hostname);
-        
-        using var self = Process.GetCurrentProcess();
-        using var identity = WindowsIdentity.GetCurrent();
-
-        return new Metadata
-        {
-            Id = Guid.NewGuid().ConvertToShortGuid(),
-            Identity = identity.Name,
-            Hostname = hostname,
-            Address = addresses.LastOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)?.ToString(),
-            Process = self.ProcessName,
-            ProcessId = self.Id,
-            Integrity = GetProcessIntegrity(identity),
-            Architecture = Environment.Is64BitProcess ? ProcessArch.X64 : ProcessArch.X86
-        };
+        return Guid.NewGuid()
+            .ToString()
+            .Replace("-", "")
+            .Substring(0, 10);
     }
-
-    public static string GetRandomString(int length)
+    
+    public static TimeSpan CalculateSleepTime(int interval, int jitter)
     {
-        const string chars = "1234567890qwertyuiopasdfghjklzxcvbnm";
+        var diff = (int)Math.Round((double)interval / 100 * jitter);
+
+        var min = interval - diff;
+        var max = interval + diff;
+
         var rand = new Random();
-        
-        return new string(Enumerable.Repeat(chars, length)
-            .Select(s => s[rand.Next(s.Length)]).ToArray());
-    }
-
-    private static ProcessIntegrity GetProcessIntegrity(WindowsIdentity identity)
-    {
-        if (identity.Name.Equals("SYSTEM", StringComparison.OrdinalIgnoreCase))
-            return ProcessIntegrity.SYSTEM;
-
-        var principal = new WindowsPrincipal(identity);
-        
-        return principal.IsInRole(WindowsBuiltInRole.Administrator)
-            ? ProcessIntegrity.HIGH
-            : ProcessIntegrity.MEDIUM;
+        return new TimeSpan(0, 0, rand.Next(min, max));
     }
 }

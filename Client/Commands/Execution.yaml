@@ -1,56 +1,62 @@
 ﻿- Alias: shell
-  Description: Execute a program via cmd.exe
-  Command: 13
+  Description: Execute a shell command and stream output
+  Command: 58
+  Output: 1
+  OpSec: Spawns "C:\Windows\System32\cmd.exe /c"
   Arguments:
     - Name: args
       Optional: false
 
 - Alias: run
-  Description: Execute a program
-  Command: 14
+  Description: Execute a program and stream output
+  Command: 59
+  Output: 1
+  OpSec: Spawns a process
   Arguments:
     - Name: program
       Optional: false
     - Name: args
-      
-- Alias: powershell-import
-  Description: Import a PowerShell script
-  Command: 15
+
+- Alias: runas
+  Description: Execute a program with alternate credentials and stream output
+  Command: 60
+  Output: 1
+  OpSec: Spawns a process
   Arguments:
-    - Name: /path/to/script
+    - Name: DOMAIN\\Username
       Optional: false
-      Artefact: true
+    - Name: Password
+      Optional: false
+    - Name: program
+      Optional: false
+    - Name: args
 
 - Alias: powershell
-  Description: Execute unmanaged PowerShell
-  Command: 16
+  Description: Execute a PowerShell cmdlet
+  Command: 61
+  Output: 1
+  OpSec: Uses Lee Christensen's Unmanaged PowerShell runner
   Arguments:
-    - Name: args
+    - Name: /path/to/ps1
+      Type: 1
+    - Name: cmdlet
       Optional: false
+      
+- Alias: powershell-import
+  Description: Load a PowerShell script into memory
+  Command: 62
+  Arguments:
+    - Name: /path/to/ps1
+      Optional: false
+      Type: 1
 
 - Alias: execute-assembly
   Description: Load a .NET assembly and call its Entry Point
-  Command: 17
+  Command: 63
+  Output: 1
+  OpSec: Executes in a disposable AppDomain
   Arguments:
     - Name: /path/to/assembly
       Optional: false
-      Artefact: true
-    - Name: args
-      
-- Alias: inline-execute
-  Description: Load and execute a custom IDroneCommand
-  Command: 18
-  Arguments:
-    - Name: /path/to/assembly
-      Optional: false
-      Artefact: true
-    - Name: args
-      
-- Alias: overload
-  Description: Load a native DLL and call an exported function
-  Command: 19
-  Arguments:
-    - Name: /path/to/dll
-      Optional: false
-      Artefact: true
+      Type: 1
     - Name: args

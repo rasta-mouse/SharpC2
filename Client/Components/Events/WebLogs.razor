@@ -1,0 +1,75 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+
+@using Client.Models.Events
+@implements IDisposable
+
+<MudTable Items="@_events" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="@(new Func<DateTime, object>(e => e.Date))">Date</MudTableSortLabel></MudTh>
+        <MudTh>Method</MudTh>
+        <MudTh>Uri</MudTh>
+        <MudTh>User Agent</MudTh>
+        <MudTh>Source IP</MudTh>
+        <MudTh>Response Code</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Date">@context.Date</MudTd>
+        <MudTd DataLabel="Method">@context.Method</MudTd>
+        <MudTd DataLabel="Uri">@context.Uri</MudTd>
+        <MudTd DataLabel="UserAgent">@context.UserAgent</MudTd>
+        <MudTd DataLabel="SourceAddress">@context.SourceAddress</MudTd>
+        <MudTd DataLabel="ResponseCode">
+            <MudText Typo="Typo.body1" Color="@FormatColour(context)">
+                @context.ResponseCode
+            </MudText>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+
+    private bool _loading = true;
+    private readonly List<WebLogEvent> _events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var events = await Api.GetWebLogs();
+        _events.AddRange(events);
+        _loading = false;
+    }
+
+    protected override void OnInitialized()
+    {
+        Hub.NewEvent += OnNewEvent;
+    }
+
+    private async Task OnNewEvent(int type, string id)
+    {
+        if ((EventType)type == EventType.WEB_LOG)
+        {
+            var ev = await Api.GetWebLog(id);
+            
+            if (ev is null)
+                return;
+            
+            _events.Insert(0, ev);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Color FormatColour(WebLogEvent log)
+    {
+        return log.ResponseCode switch
+        {
+            >= 400 => Color.Error,
+            >= 300 => Color.Warning,
+            _ => Color.Success
+        };
+    }
+
+    public void Dispose()
+    {
+        Hub.NewEvent -= OnNewEvent;
+    }
+}

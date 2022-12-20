@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E36BB7A3-9BD4-47C0-8DA5-03D7C9A26EC8}</ProjectGuid>
+    <ProjectGuid>{87904247-C363-4F12-A13A-3DA484913F9E}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Drone</RootNamespace>
     <AssemblyName>svc_stager</AssemblyName>
@@ -59,10 +59,12 @@
     <Compile Include="DroneService.Designer.cs">
       <DependentUpon>DroneService.cs</DependentUpon>
     </Compile>
+    <Compile Include="Helpers.cs" />
+    <Compile Include="Interop\Data.cs" />
+    <Compile Include="Interop\Delegates.cs" />
+    <Compile Include="Interop\Methods.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Native.cs" />
-    <Compile Include="Win32.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
