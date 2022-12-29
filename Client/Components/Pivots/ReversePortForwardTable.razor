@@ -1,0 +1,104 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+
+@using Client.Models.Pivots
+@implements IDisposable
+
+<MudTable Items="@_forwards" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Drone</MudTh>
+        <MudTh>Bind Port</MudTh>
+        <MudTh>Forward Host</MudTh>
+        <MudTh>Forward Port</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Drone">@context.DroneDescription</MudTd>
+        <MudTd DataLabel="BindPort">@context.BindPort</MudTd>
+        <MudTd DataLabel="ForwardHost">@context.ForwardHost</MudTd>
+        <MudTd DataLabel="ForwardPort">@context.ForwardPort</MudTd>
+        
+        <MudTd>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteForward(context))"/>
+            </MudTooltip>
+        </MudTd>
+        
+    </RowTemplate>
+</MudTable>
+
+<MudTooltip Text="Create">
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Class="mt-4"
+            OnClick="OpenCreateForward"/>
+</MudTooltip>
+
+@code {
+    
+    private bool _loading = true;
+    private List<ReversePortForward> _forwards = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.ReversePortForwardCreated += OnReversePortForwardCreated;
+        Hub.ReversePortForwardDeleted += OnReversePortForwardDeleted;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var forwards = await Api.GetReversePortForwards();
+
+        foreach (var forward in forwards)
+            await AddForward(forward);
+
+        _loading = false;
+    }
+
+    private async Task AddForward(ReversePortForward forward)
+    {
+        var drone = await Api.GetDrone(forward.DroneId);
+        forward.DroneDescription = drone.ToString();
+            
+        _forwards.Add(forward);
+    }
+    
+    private async Task OnReversePortForwardDeleted(string id)
+    {
+        var forward = _forwards.Find(f => f.Id.Equals(id));
+
+        if (forward is null)
+            return;
+
+        _forwards.Remove(forward);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnReversePortForwardCreated(string id)
+    {
+        var forward = await Api.GetReversePortForward(id);
+        
+        if (forward is null)
+            return;
+
+        await AddForward(forward);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OpenCreateForward()
+    {
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<CreateReversePortForward>("", options);
+    }
+    
+    private async Task DeleteForward(ReversePortForward forward)
+    {
+        await Api.DeleteReversePortForward(forward.Id);
+    }
+
+    public void Dispose()
+    {
+        Hub.ReversePortForwardCreated -= OnReversePortForwardCreated;
+        Hub.ReversePortForwardDeleted -= OnReversePortForwardDeleted;
+    }
+}

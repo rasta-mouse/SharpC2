@@ -21,6 +21,9 @@ public class SharpC2Hub
     public Func<string, Task> HostedFileAdded { get; set; }
     public Func<string, Task> HostedFileDeleted { get; set; }
     
+    public Func<string, Task> ReversePortForwardCreated { get; set; }
+    public Func<string, Task> ReversePortForwardDeleted { get; set; }
+    
     public Func<int, string, Task> NewEvent { get; set; }
     
     private HubConnection _connection;
@@ -54,6 +57,9 @@ public class SharpC2Hub
         _connection.On<string>("HostedFileDeleted", OnHostedFileDeleted);
 
         _connection.On<int, string>("NewEvent", OnNewEvent);
+        
+        _connection.On<string>("ReversePortForwardCreated", OnReversePortForwardCreated);
+        _connection.On<string>("ReversePortForwardDeleted", OnReversePortForwardDeleted);
     }
     
     private static HttpMessageHandler HttpMessageHandlerFactory(HttpMessageHandler handler)
@@ -86,4 +92,7 @@ public class SharpC2Hub
     private void OnHostedFileDeleted(string id) => HostedFileDeleted?.Invoke(id);
 
     private void OnNewEvent(int type, string id) => NewEvent?.Invoke(type, id);
+    
+    private void OnReversePortForwardCreated(string id) => ReversePortForwardCreated?.Invoke(id);
+    private void OnReversePortForwardDeleted(string id) => ReversePortForwardDeleted?.Invoke(id);
 }

@@ -37,5 +37,6 @@ public enum FrameType
     TASK,
     TASK_OUTPUT,
     TASK_CANCEL,
+    RPORTFWD,
     EXIT
 }

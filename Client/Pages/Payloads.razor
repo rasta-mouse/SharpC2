@@ -11,8 +11,7 @@
     
     <MudStack>
         
-        <MudSelect T="Handler" Label="Handler" Variant="Variant.Outlined" @bind-Value="@_selectedHandler"
-                   xmlns="http://www.w3.org/1999/html">
+        <MudSelect T="Handler" Label="Handler" Variant="Variant.Outlined" @bind-Value="@_selectedHandler">
             @foreach (var handler in _handlers)
             {
                 <MudSelectItem T="Handler" Value="@handler"/>

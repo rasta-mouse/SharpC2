@@ -7,10 +7,12 @@ using AutoMapper;
 using Client.Models.Drones;
 using Client.Models.Events;
 using Client.Models.Handlers;
+using Client.Models.Pivots;
 using Client.Models.Tasks;
 
 using RestSharp;
 using RestSharp.Authenticators;
+
 using SharpC2.API.Requests;
 using SharpC2.API.Responses;
 
@@ -221,5 +223,35 @@ public class SharpC2Api
         var response = await _client.ExecuteAsync<UserAuthEventResponse>(request);
 
         return _mapper.Map<UserAuthEventResponse, UserAuthEvent>(response.Data);
+    }
+
+    public async Task<IEnumerable<ReversePortForward>> GetReversePortForwards()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}");
+        var response = await _client.ExecuteAsync<IEnumerable<ReversePortForwardResponse>>(request);
+
+        return _mapper.Map<IEnumerable<ReversePortForwardResponse>, IEnumerable<ReversePortForward>>(response.Data);
+    }
+
+    public async Task<ReversePortForward> GetReversePortForward(string id)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}");
+        var response = await _client.ExecuteAsync<ReversePortForwardResponse>(request);
+
+        return _mapper.Map<ReversePortForwardResponse, ReversePortForward>(response.Data);
+    }
+
+    public async Task CreateReversePortForward(ReversePortForwardRequest fwdRequest)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}", Method.Post);
+        request.AddParameter("application/json", JsonSerializer.Serialize(fwdRequest), ParameterType.RequestBody);
+
+        await _client.ExecuteAsync(request);
+    }
+
+    public async Task DeleteReversePortForward(string id)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}", Method.Delete);
+        await _client.ExecuteAsync(request);
     }
 }

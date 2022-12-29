@@ -21,12 +21,14 @@ public class DronesController : ControllerBase
     private readonly IDroneService _drones;
     private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
+    private readonly IReversePortForwardService _portForwards;
 
-    public DronesController(IDroneService drones, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
+    public DronesController(IDroneService drones, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub, IReversePortForwardService portForwards)
     {
         _drones = drones;
         _mapper = mapper;
         _hub = hub;
+        _portForwards = portForwards;
     }
 
     [HttpGet]
@@ -61,6 +63,12 @@ public class DronesController : ControllerBase
         await _drones.Delete(drone);
         await _hub.Clients.All.DroneDeleted(drone.Metadata.Id);
         
+        // also delete any pivots
+        var forwards = (await _portForwards.GetAll(drone.Metadata.Id)).ToArray();
+
+        if (forwards.Any())
+            await _portForwards.Delete(forwards);
+
         return NoContent();
     }
 }

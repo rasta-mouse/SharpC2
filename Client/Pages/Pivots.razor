@@ -1,0 +1,15 @@
+﻿@attribute [Authorize]
+@page "/pivots"
+
+@using Client.Components.Pivots
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge">
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+        <MudTabPanel Text="RPORTFWD">
+            <ReversePortForwardTable />
+        </MudTabPanel>
+
+        <MudTabPanel Text="SOCKS" Disabled="true">
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>

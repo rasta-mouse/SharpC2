@@ -25,4 +25,26 @@ public static class Extensions
             ? string.Empty
             : identity.Name;
     }
+
+    public static async Task<byte[]> ReadStream(this Stream stream)
+    {
+        const int bufSize = 1024;
+        int read;
+
+        using var ms = new MemoryStream();
+
+        do
+        {
+            var buf = new byte[bufSize];
+            read = await stream.ReadAsync(buf, 0, bufSize);
+
+            if (read == 0)
+                break;
+
+            await ms.WriteAsync(buf, 0, read);
+
+        } while (read >= bufSize);
+
+        return ms.ToArray();
+    }
 }

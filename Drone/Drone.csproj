@@ -121,6 +121,7 @@
         <Compile Include="Messages\DroneTask.cs" />
         <Compile Include="Messages\Metadata.cs" />
         <Compile Include="Messages\ProcessEntry.cs" />
+        <Compile Include="Messages\ReversePortForwardPacket.cs" />
         <Compile Include="Messages\TaskOutput.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
@@ -129,6 +130,7 @@
         <Compile Include="Utilities\Helpers.cs" />
         <Compile Include="Utilities\PowerShellRunner.cs" />
         <Compile Include="Utilities\ShadowRunner.cs" />
+        <Compile Include="Utilities\ReversePortForwardState.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="dnMerge.config" />

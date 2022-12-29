@@ -105,13 +105,15 @@ internal static class Program
         builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
         builder.Services.AddSingleton<IAuthenticationService>(authService);
         builder.Services.AddSingleton<IHandlerService, HandlerService>();
-        builder.Services.AddSingleton<ICryptoService, CryptoService>();
-        builder.Services.AddSingleton<IDroneService, DroneService>();
         builder.Services.AddSingleton<ITaskService, TaskService>();
         builder.Services.AddSingleton<IServerService, ServerService>();
-        builder.Services.AddSingleton<IPayloadService, PayloadService>();
-        builder.Services.AddSingleton<IEventService, EventService>();
-        builder.Services.AddSingleton<IHostedFilesService, HostedFileService>();
+        
+        builder.Services.AddTransient<ICryptoService, CryptoService>();
+        builder.Services.AddTransient<IDroneService, DroneService>();
+        builder.Services.AddTransient<IPayloadService, PayloadService>();
+        builder.Services.AddTransient<IEventService, EventService>();
+        builder.Services.AddTransient<IHostedFilesService, HostedFileService>();
+        builder.Services.AddTransient<IReversePortForwardService, ReversePortForwardService>();
         
         builder.Services.AddAutoMapper(typeof(Program));
 

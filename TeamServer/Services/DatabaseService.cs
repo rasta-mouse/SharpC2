@@ -23,6 +23,7 @@ public class DatabaseService : IDatabaseService
             conn.CreateTable<CryptoDao>();
             conn.CreateTable<DroneDao>();
             conn.CreateTable<TaskRecordDao>();
+            conn.CreateTable<ReversePortForwardDao>();
         }
         
         // open connections

@@ -40,4 +40,11 @@ public interface INotificationHub
     Task NewEvent(EventType type, string id);
 
     #endregion
+
+    #region ReversePortForwards
+
+    Task ReversePortForwardCreated(string id);
+    Task ReversePortForwardDeleted(string id);
+
+    #endregion
 }
