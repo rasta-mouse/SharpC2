@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using Drone.Messages;
 
 namespace Drone.Interfaces;
 
-public interface ICommModule
+public interface ICommModule : IDisposable
 {
     void Init(Metadata metadata);
     Task<IEnumerable<C2Frame>> ReadFrames();
-    Task SendFrames(IEnumerable<C2Frame> frames);
+    Task SendFrame(C2Frame frame);
 }

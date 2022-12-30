@@ -4,8 +4,6 @@ using System.Net.Http;
 using System.Threading.Tasks;
 
 using Drone.Interfaces;
-using Drone.Messages;
-using Drone.Utilities;
 
 namespace Drone.CommModules;
 
@@ -37,9 +35,9 @@ public class HttpCommModule : ICommModule
         }
     }
 
-    public async Task SendFrames(IEnumerable<C2Frame> frames)
+    public async Task SendFrame(C2Frame frame)
     {
-        var content = new ByteArrayContent(frames.Serialize());
+        var content = new ByteArrayContent(frame.Serialize());
 
         try
         {
@@ -50,13 +48,13 @@ public class HttpCommModule : ICommModule
             // ignore
         }
     }
+    
+    public void Dispose()
+    {
+        _client?.Dispose();
+    }
 
-    private static string Schema
-        => "http";
-    
-    private static string ConnectAddress
-        => "localhost";
-    
-    private static string ConnectPort
-        => "8080";
+    private static string Schema => "http";
+    private static string ConnectAddress => "localhost";
+    private static string ConnectPort => "8080";
 }

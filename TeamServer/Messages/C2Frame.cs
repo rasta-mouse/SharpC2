@@ -6,22 +6,19 @@ namespace TeamServer.Messages;
 public class C2Frame
 {
     [ProtoMember(1)]
-    public byte[] Type { get; init; }
+    public string DroneId { get; set; }
     
     [ProtoMember(2)]
-    public byte[] Length { get; init; }
-    
+    public FrameType Type { get; set; }
+
     [ProtoMember(3)]
-    public byte[] Value { get; init; }
+    public byte[] Data { get; set; }
 
-    public FrameType FrameType
-        => (FrameType)BitConverter.ToInt32(Type);
-
-    public C2Frame(FrameType type, byte[] data = null)
+    public C2Frame(string droneId, FrameType type, byte[] data = null)
     {
-        Type = BitConverter.GetBytes((int)type);
-        Length = BitConverter.GetBytes(data?.Length ?? 0);
-        Value = data;
+        DroneId = droneId;
+        Type = type;
+        Data = data;
     }
 
     public C2Frame()
@@ -32,11 +29,10 @@ public class C2Frame
 
 public enum FrameType
 {
-    NOP,
-    CHECKIN,
+    CHECK_IN,
     TASK,
     TASK_OUTPUT,
     TASK_CANCEL,
-    RPORTFWD,
+    REV_PORT_FWD,
     EXIT
 }

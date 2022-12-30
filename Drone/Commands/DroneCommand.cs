@@ -1,5 +1,5 @@
 ﻿using System.Threading;
-
+using System.Threading.Tasks;
 using Drone.Interfaces;
 
 namespace Drone.Commands;
@@ -16,5 +16,5 @@ public abstract class DroneCommand : IDroneCommand
         Drone = drone;
     }
 
-    public abstract void Execute(DroneTask task, CancellationToken cancellationToken);
+    public abstract Task Execute(DroneTask task, CancellationToken cancellationToken);
 }

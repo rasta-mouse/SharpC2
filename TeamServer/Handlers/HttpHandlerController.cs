@@ -43,8 +43,8 @@ public class HttpHandlerController : ControllerBase
             await HttpContext.Request.Body.CopyToAsync(ms);
             
             // recover frames
-            var inbound = ms.ToArray().Deserialize<IEnumerable<C2Frame>>();
-            await _server.HandleInboundMessages(inbound);
+            var inbound = ms.ToArray().Deserialize<C2Frame>();
+            await _server.HandleInboundFrame(inbound);
 
             return NoContent();
         }

@@ -29,7 +29,8 @@ public class TasksController : ControllerBase
     private readonly ICryptoService _crypto;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
-    public TasksController(ITaskService tasks, IDroneService drones, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub, ICryptoService crypto)
+    public TasksController(ITaskService tasks, IDroneService drones, IMapper mapper,
+        IHubContext<NotificationHub, INotificationHub> hub, ICryptoService crypto)
     {
         _tasks = tasks;
         _drones = drones;
@@ -37,7 +38,7 @@ public class TasksController : ControllerBase
         _hub = hub;
         _crypto = crypto;
     }
-    
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TaskRecordResponse>>> GetTaskRecords()
     {
@@ -127,7 +128,7 @@ public class TasksController : ControllerBase
         // if the task is running, send a cancellation frame
         if (task.Status == TaskStatus.RUNNING)
         {
-            var frame = new C2Frame(FrameType.TASK_CANCEL, await _crypto.Encrypt(taskId));
+            var frame = new C2Frame(drone.Metadata.Id, FrameType.TASK_CANCEL, await _crypto.Encrypt(taskId));
             _tasks.CacheFrame(droneId, frame);
             
             return NoContent();

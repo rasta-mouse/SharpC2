@@ -5,6 +5,6 @@ namespace TeamServer.Interfaces;
 
 public interface IServerService
 {
-    Task HandleInboundMessages(IEnumerable<C2Frame> frames);
+    Task HandleInboundFrame(C2Frame frame);
     Task<IEnumerable<C2Frame>> GetOutboundFrames(Metadata metadata);
 }

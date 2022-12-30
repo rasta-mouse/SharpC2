@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -7,9 +8,8 @@ public sealed class StopDrone : DroneCommand
     public override byte Command => 0x13;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
-        Drone.Stop();
-        Drone.SendTaskComplete(task.Id);
+        await Drone.Stop();
     }
 }

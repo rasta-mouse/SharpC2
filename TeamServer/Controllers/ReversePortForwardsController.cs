@@ -28,7 +28,8 @@ public class ReversePortForwardsController : ControllerBase
     private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
-    public ReversePortForwardsController(IReversePortForwardService portForwards, IDroneService drones, ITaskService tasks, ICryptoService crypto, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
+    public ReversePortForwardsController(IReversePortForwardService portForwards, IDroneService drones,
+        ITaskService tasks, ICryptoService crypto, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
     {
         _portForwards = portForwards;
         _drones = drones;
@@ -51,7 +52,7 @@ public class ReversePortForwardsController : ControllerBase
         var response = _mapper.Map<IEnumerable<ReversePortForward>, IEnumerable<ReversePortForwardResponse>>(forwards);
         return Ok(response);
     }
-    
+
     [HttpGet("{forwardId}")]
     public async Task<ActionResult<ReversePortForwardResponse>> Get(string forwardId)
     {
@@ -97,7 +98,7 @@ public class ReversePortForwardsController : ControllerBase
         
         // task the drone
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.START, BitConverter.GetBytes(forward.BindPort));
-        _tasks.CacheFrame(forward.DroneId, new C2Frame(FrameType.RPORTFWD, await _crypto.Encrypt(packet)));
+        _tasks.CacheFrame(forward.DroneId, new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet)));
         
         var response = _mapper.Map<ReversePortForward, ReversePortForwardResponse>(forward);
         return Ok(response);
@@ -116,7 +117,7 @@ public class ReversePortForwardsController : ControllerBase
         
         // task the drone
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.STOP);
-        _tasks.CacheFrame(forward.DroneId, new C2Frame(FrameType.RPORTFWD, await _crypto.Encrypt(packet)));
+        _tasks.CacheFrame(forward.DroneId, new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet)));
         
         return NoContent();
     }

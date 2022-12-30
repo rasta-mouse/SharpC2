@@ -8,12 +8,12 @@ namespace TeamServer.Modules;
 
 public sealed class ReversePortForwardModule : ServerModule
 {
-    public override FrameType FrameType => FrameType.RPORTFWD;
+    public override FrameType FrameType => FrameType.REV_PORT_FWD;
 
     public override async Task ProcessFrame(C2Frame frame)
     {
         // decrypt packet
-        var packet = await Crypto.Decrypt<ReversePortForwardPacket>(frame.Value);
+        var packet = await Crypto.Decrypt<ReversePortForwardPacket>(frame.Data);
 
         // should only really be DATA here
         if (packet.Type != ReversePortForwardPacket.PacketType.DATA)
@@ -52,7 +52,7 @@ public sealed class ReversePortForwardModule : ServerModule
         packet.Data = response;
 
         // new frame
-        frame = new C2Frame(FrameType.RPORTFWD, await Crypto.Encrypt(packet));
+        frame = new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await Crypto.Encrypt(packet));
         
         Tasks.CacheFrame(forward.DroneId, frame);
     }

