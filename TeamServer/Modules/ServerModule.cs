@@ -12,6 +12,7 @@ public abstract class ServerModule : IServerModule
     public abstract FrameType FrameType { get; }
 
     protected IDroneService Drones { get; private set; }
+    protected IPeerToPeerService PeerToPeer { get; private set; }
     protected ITaskService Tasks { get; private set; }
     protected ICryptoService Crypto { get; private set; }
     protected IReversePortForwardService PortForwards { get; private set; }
@@ -20,6 +21,7 @@ public abstract class ServerModule : IServerModule
     public void Init(ServerService server)
     {
         Drones = server.Drones;
+        PeerToPeer = server.PeerToPeer;
         Tasks = server.Tasks;
         Crypto = server.Crypto;
         PortForwards = server.PortForwards;

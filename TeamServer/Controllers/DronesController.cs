@@ -19,16 +19,18 @@ namespace TeamServer.Controllers;
 public class DronesController : ControllerBase
 {
     private readonly IDroneService _drones;
+    private readonly IPeerToPeerService _peerToPeer;
     private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
     private readonly IReversePortForwardService _portForwards;
 
-    public DronesController(IDroneService drones, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub, IReversePortForwardService portForwards)
+    public DronesController(IDroneService drones, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub, IReversePortForwardService portForwards, IPeerToPeerService peerToPeer)
     {
         _drones = drones;
         _mapper = mapper;
         _hub = hub;
         _portForwards = portForwards;
+        _peerToPeer = peerToPeer;
     }
 
     [HttpGet]
@@ -60,6 +62,9 @@ public class DronesController : ControllerBase
         if (drone is null)
             return NotFound();
 
+        // remove vertex
+        _peerToPeer.RemoveVertex(drone.Metadata.Id);
+        
         await _drones.Delete(drone);
         await _hub.Clients.All.DroneDeleted(drone.Metadata.Id);
         

@@ -34,5 +34,7 @@ public enum FrameType
     TASK_OUTPUT,
     TASK_CANCEL,
     REV_PORT_FWD,
+    LINK,
+    UNLINK,
     EXIT
 }

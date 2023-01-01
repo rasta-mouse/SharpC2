@@ -5,6 +5,7 @@ public class DroneResponse
     public MetadataResponse Metadata { get; set; }
     public DateTime FirstSeen { get; set; }
     public DateTime LastSeen { get; set; }
+    public string Parent { get; set; }
     public int Status { get; set; }
 }
 

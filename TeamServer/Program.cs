@@ -107,6 +107,7 @@ internal static class Program
         builder.Services.AddSingleton<IHandlerService, HandlerService>();
         builder.Services.AddSingleton<ITaskService, TaskService>();
         builder.Services.AddSingleton<IServerService, ServerService>();
+        builder.Services.AddSingleton<IPeerToPeerService, PeerToPeerService>();
         
         builder.Services.AddTransient<ICryptoService, CryptoService>();
         builder.Services.AddTransient<IDroneService, DroneService>();

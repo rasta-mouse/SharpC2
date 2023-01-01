@@ -8,6 +8,9 @@ public sealed class DroneDao
     [PrimaryKey, Column("id")]
     public string Id { get; set; }
 
+    [Column("parent")]
+    public string Parent { get; set; }
+
     [Column("identity")]
     public string Identity { get; set; }
     

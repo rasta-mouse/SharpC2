@@ -24,6 +24,7 @@ public interface INotificationHub
     Task DroneCheckedIn(string id);
     Task DroneExited(string id);
     Task DroneDeleted(string id);
+    Task DroneLost(string id);
 
     #endregion
 

@@ -93,6 +93,7 @@ public class HttpHandler : Handler
         services.AddSingleton(Program.GetService<IDatabaseService>());
         services.AddSingleton(Program.GetService<ICryptoService>());
         services.AddSingleton(Program.GetService<IDroneService>());
+        services.AddSingleton(Program.GetService<IPeerToPeerService>());
         services.AddSingleton(Program.GetService<ITaskService>());
         services.AddSingleton(Program.GetService<IServerService>());
         services.AddSingleton(Program.GetService<IEventService>());

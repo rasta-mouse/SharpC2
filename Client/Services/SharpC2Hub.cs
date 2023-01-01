@@ -13,6 +13,7 @@ public class SharpC2Hub
     public Func<string, Task> DroneCheckedIn { get; set; }
     public Func<string, Task> DroneExited { get; set; }
     public Func<string, Task> DroneDeleted { get; set; }
+    public Func<string, Task> DroneLost { get; set; }
     
     public Func<string, string, Task> DroneTasked { get; set; }
     public Func<string, string, Task> TaskUpdated { get; set; }
@@ -48,6 +49,7 @@ public class SharpC2Hub
         _connection.On<string>("DroneCheckedIn", OnDroneCheckedIn);
         _connection.On<string>("DroneExited", OnDroneExited);
         _connection.On<string>("DroneDeleted", OnDroneDeleted);
+        _connection.On<string>("DroneLost", OnDroneLost);
         
         _connection.On<string, string>("DroneTasked", OnDroneTasked);
         _connection.On<string, string>("TaskUpdated", OnTaskUpdated);
@@ -83,6 +85,7 @@ public class SharpC2Hub
     private void OnDroneCheckedIn(string drone) => DroneCheckedIn?.Invoke(drone);
     private void OnDroneExited(string drone) => DroneExited?.Invoke(drone);
     private void OnDroneDeleted(string drone) => DroneDeleted?.Invoke(drone);
+    private void OnDroneLost(string drone) => DroneLost?.Invoke(drone);
     
     private void OnDroneTasked(string drone, string task) => DroneTasked?.Invoke(drone, task);
     private void OnTaskUpdated(string drone, string task) => TaskUpdated?.Invoke(drone, task);

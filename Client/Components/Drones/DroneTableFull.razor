@@ -10,6 +10,7 @@
 <MudTable Items="@_drones" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
     <HeaderContent>
         <MudTh></MudTh>
+        <MudTh></MudTh>
         <MudTh>User</MudTh>
         <MudTh>Hostname</MudTh>
         <MudTh>Address</MudTh>
@@ -33,6 +34,26 @@
                 <MudMenuItem OnClick="@(async () => await KillDrone(context))">Kill</MudMenuItem>
                 <MudMenuItem OnClick="@(async () => await DeleteDrone(context))">Remove</MudMenuItem>
             </MudMenu>
+        </MudTd>
+        <MudTd>
+            @if (!string.IsNullOrWhiteSpace(context.Parent))
+            {
+                var parent = _drones.FirstOrDefault(d => d.Metadata.Id.Equals(context.Parent));
+
+                if (parent is not null)
+                {
+                    <MudTooltip Text="@($"{parent.Metadata.Hostname} @ {parent.Metadata.Pid} ({parent.Metadata.Process})")">
+                        @if (context.Status == Drone.DroneStatus.ALIVE)
+                        {
+                            <MudIconButton Icon="@Icons.Filled.Link" Disabled="@true"/>
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Filled.LinkOff" Disabled="@true"/>
+                        }
+                    </MudTooltip>
+                }
+            }
         </MudTd>
         <MudTd DataLabel="User">@context.Metadata.Identity</MudTd>
         <MudTd DataLabel="Hostname">@context.Metadata.Hostname</MudTd>
@@ -65,6 +86,7 @@
         Hub.DroneCheckedIn += OnDroneCheckedIn;
         Hub.DroneExited += OnDroneExited;
         Hub.DroneDeleted += OnDroneDeleted;
+        Hub.DroneLost += OnDroneLost;
     }
 
     protected override async Task OnInitializedAsync()
@@ -135,6 +157,17 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    private async Task OnDroneLost(string id)
+    {
+        var drone = _drones.Find(d => d.Metadata.Id.Equals(id));
+
+        if (drone is null)
+            return;
+
+        drone.Status = Drone.DroneStatus.LOST;
+        await InvokeAsync(StateHasChanged);
+    }
+
     private Color FormatColour(Drone drone)
     {
         return drone.Status switch
@@ -173,6 +206,9 @@
     {
         Hub.NewDrone -= OnNewDrone;
         Hub.DroneCheckedIn -= OnDroneCheckedIn;
+        Hub.DroneExited -= OnDroneExited;
+        Hub.DroneDeleted -= OnDroneDeleted;
+        Hub.DroneLost -= OnDroneLost;
         
         _drones.ForEach(d => d.SeenUpdated -= OnLastSeenUpdated);
     }

@@ -82,9 +82,11 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="Commands\ChangeDirectory.cs" />
+        <Compile Include="Commands\Connect.cs" />
         <Compile Include="Commands\DroneCommand.cs" />
         <Compile Include="Commands\ExecuteAssembly.cs" />
         <Compile Include="Commands\KillProcess.cs" />
+        <Compile Include="Commands\Link.cs" />
         <Compile Include="Commands\Run.cs" />
         <Compile Include="Commands\RunAs.cs" />
         <Compile Include="Commands\SetSleep.cs" />
@@ -106,19 +108,20 @@
         <Compile Include="Commands\StealToken.cs" />
         <Compile Include="Commands\TakeScreenshot.cs" />
         <Compile Include="Commands\UploadFile.cs" />
+        <Compile Include="CommModules\CommModule.cs" />
         <Compile Include="CommModules\HttpCommModule.cs" />
+        <Compile Include="CommModules\SmbCommModule.cs" />
+        <Compile Include="CommModules\TcpCommModule.cs" />
         <Compile Include="Config.cs" />
         <Compile Include="Drone.cs" />
         <Compile Include="Global.cs" />
-        <Compile Include="Interfaces\ICommModule.cs" />
-        <Compile Include="Interfaces\IConfig.cs" />
-        <Compile Include="Interfaces\IDroneCommand.cs" />
         <Compile Include="Interop\Data.cs" />
         <Compile Include="Interop\Delegates.cs" />
         <Compile Include="Interop\Methods.cs" />
         <Compile Include="Messages\C2Frame.cs" />
         <Compile Include="Messages\DirectoryEntry.cs" />
         <Compile Include="Messages\DroneTask.cs" />
+        <Compile Include="Messages\LinkNotification.cs" />
         <Compile Include="Messages\Metadata.cs" />
         <Compile Include="Messages\ProcessEntry.cs" />
         <Compile Include="Messages\ReversePortForwardPacket.cs" />

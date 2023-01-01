@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing.Design;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -79,26 +80,6 @@ public static class Methods
         return hNewToken;
     }
 
-    public static bool CreateProcessWithToken(IntPtr hToken, LOGON_FLAGS logonFlags, string commandLine, PROCESS_CREATION_FLAGS creationFlags, ref STARTUPINFOEX startupInfo, out PROCESS_INFORMATION processInfo)
-    {
-        var pi = new PROCESS_INFORMATION();
-        
-        object[] parameters =
-        {
-            hToken, logonFlags, commandLine, "", creationFlags, IntPtr.Zero,
-            Directory.GetCurrentDirectory(), startupInfo, pi
-        };
-        
-        var success = (bool)Generic.DynamicApiInvoke(
-            "advapi32.dll",
-            "CreateProcessWithTokenW",
-            typeof(CreateProcessWithTokenW),
-            ref parameters);
-
-        processInfo = (PROCESS_INFORMATION)parameters[8];
-        return success;
-    }
-    
     public static bool RevertToSelf()
     {
         object[] parameters = { };
@@ -118,6 +99,17 @@ public static class Methods
             "kernel32.dll",
             "CloseHandle",
             typeof(CloseHandle),
+            ref parameters);
+    }
+
+    public static bool PeekNamedPipe(IntPtr hPipe)
+    {
+        object[] parameters = { hPipe, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, (uint)0, IntPtr.Zero };
+        
+        return (bool)Generic.DynamicApiInvoke(
+            "kernel32.dll",
+            "PeekNamedPipe",
+            typeof(PeekNamedPipe),
             ref parameters);
     }
     

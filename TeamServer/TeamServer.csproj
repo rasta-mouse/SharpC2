@@ -35,6 +35,8 @@
       <EmbeddedResource Include="Resources\svc_stager.exe" />
       <None Remove="Resources\stager.ps1" />
       <EmbeddedResource Include="Resources\stager.ps1" />
+      <None Remove="server.key" />
+      <None Remove="server.crt" />
     </ItemGroup>
 
 </Project>

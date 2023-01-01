@@ -7,6 +7,7 @@ public class Drone : IDisposable
     public Metadata Metadata { get; set; }
     public DateTime FirstSeen { get; set; }
     public DateTime LastSeen { get; set; }
+    public string Parent { get; set; }
     public DroneStatus Status { get; set; }
     
     public Action SeenUpdated { get; set; }

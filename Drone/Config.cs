@@ -2,9 +2,7 @@
 
 namespace Drone;
 
-using Interfaces;
-
-public class Config : IConfig
+public class Config
 {
     private readonly Dictionary<Setting, object> _configs = new();
 
@@ -39,4 +37,13 @@ public class Config : IConfig
     private static string SpawnTo => "C:\\Windows\\System32\\dllhost.exe";
     private static int ParentPid => -1;
     private static bool BlockDlls => false;
+}
+
+public enum Setting
+{
+    SLEEP_INTERVAL,
+    SLEEP_JITTER,
+    SPAWN_TO,
+    PARENT_PID,
+    BLOCK_DLLS
 }

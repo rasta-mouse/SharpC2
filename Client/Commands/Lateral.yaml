@@ -1,0 +1,17 @@
+﻿- Alias: connect
+  Description: Connect to a TCP Drone
+  Command: 90
+  Arguments:
+    - Name: target
+      Optional: false
+    - Name: port
+      Optional: false
+
+- Alias: link
+  Description: Connect to an SMB Drone
+  Command: 91
+  Arguments:
+    - Name: target
+      Optional: false
+    - Name: pipename
+      Optional: false

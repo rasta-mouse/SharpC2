@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+
 using DInvoke.Data;
 
 namespace Drone.Interop;
@@ -31,45 +32,7 @@ public static class Delegates
     
     [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
     public delegate bool RevertToSelf();
-    
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
-    public delegate bool DuplicateHandle(
-        IntPtr hSourceProcessHandle,
-        IntPtr hSourceHandle, 
-        IntPtr hTargetProcessHandle,
-        ref IntPtr lpTargetHandle,
-        uint dwDesiredAccess,
-        [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle,
-        uint dwOptions);
-    
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true, CharSet = CharSet.Unicode)]
-    public delegate bool CreateProcessW(
-        [MarshalAs(UnmanagedType.LPWStr)] string lpApplicationName,
-        [MarshalAs(UnmanagedType.LPWStr)] string lpCommandLine,
-        ref SECURITY_ATTRIBUTES lpProcessAttributes,
-        ref SECURITY_ATTRIBUTES lpThreadAttributes,
-        bool bInheritHandles,
-        uint dwCreationFlags,
-        IntPtr lpEnvironment,
-        [MarshalAs(UnmanagedType.LPWStr)] string lpCurrentDirectory,
-        ref STARTUPINFOEX lpStartupInfo,
-        out PROCESS_INFORMATION lpProcessInformation);
-    
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true, CharSet = CharSet.Unicode)]
-    public delegate bool CreateProcessWithTokenW(
-        IntPtr hToken,
-        LOGON_FLAGS dwLogonFlags,
-        [MarshalAs(UnmanagedType.LPWStr)] string lpApplicationName,
-        [MarshalAs(UnmanagedType.LPWStr)] string lpCommandLine,
-        PROCESS_CREATION_FLAGS dwCreationFlags,
-        IntPtr lpEnvironment,
-        [MarshalAs(UnmanagedType.LPWStr)] string lpCurrentDirectory,
-        ref STARTUPINFOEX lpStartupInfo,
-        out PROCESS_INFORMATION lpProcessInformation);
-    
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
-    public delegate uint WaitForSingleObject(IntPtr handle, uint milliseconds);
-    
+
     [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
     public delegate bool PeekNamedPipe(
         IntPtr hNamedPipe,
