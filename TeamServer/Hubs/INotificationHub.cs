@@ -9,6 +9,12 @@ public interface INotificationHub
     Task HttpHandlerCreated(string name);
     Task HttpHandlerDeleted(string name);
 
+    Task TcpHandlerCreated(string name);
+    Task TcpHandlerDeleted(string name);
+
+    Task SmbHandlerCreated(string name);
+    Task SmbHandlerDeleted(string name);
+
     #endregion
 
     #region HostedFiles

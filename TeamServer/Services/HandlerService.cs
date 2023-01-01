@@ -24,6 +24,8 @@ public class HandlerService : IHandlerService
         var conn = _db.GetAsyncConnection();
         
         var http = await conn.Table<HttpHandlerDao>().ToArrayAsync();
+        var tcp = await conn.Table<TcpHandlerDao>().ToArrayAsync();
+        var smb = await conn.Table<SmbHandlerDao>().ToArrayAsync();
         
         foreach (var dao in http)
         {
@@ -37,6 +39,32 @@ public class HandlerService : IHandlerService
             };
                 
             _ = handler.Start();
+            _handlers.Add(handler);
+        }
+
+        foreach (var dao in tcp)
+        {
+            var handler = new TcpHandler
+            {
+                Id = dao.Id,
+                Name = dao.Name,
+                Address = dao.Address,
+                Port = dao.Port,
+                Loopback = dao.Loopback
+            };
+            
+            _handlers.Add(handler);
+        }
+
+        foreach (var dao in smb)
+        {
+            var handler = new SmbHandler
+            {
+                Id = dao.Id,
+                Name = dao.Name,
+                PipeName = dao.PipeName
+            };
+            
             _handlers.Add(handler);
         }
     }
@@ -58,11 +86,23 @@ public class HandlerService : IHandlerService
                 
                 break;
             }
-            
+
             case HandlerType.SMB:
+            {
+                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
+                await conn.InsertAsync(smbDao);
+                
                 break;
+            }
+
             case HandlerType.TCP:
+            {
+                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
+                await conn.InsertAsync(tcpDao);
+                
                 break;
+            }
+            
             case HandlerType.EXTERNAL:
                 break;
             
@@ -96,11 +136,23 @@ public class HandlerService : IHandlerService
                 
                 break;
             }
-            
+
             case HandlerType.SMB:
+            {
+                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
+                await conn.UpdateAsync(smbDao);
+                
                 break;
+            }
+
             case HandlerType.TCP:
+            {
+                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
+                await conn.UpdateAsync(tcpDao);
+                
                 break;
+            }
+            
             case HandlerType.EXTERNAL:
                 break;
             
@@ -126,11 +178,23 @@ public class HandlerService : IHandlerService
                 
                 break;
             }
-            
+
             case HandlerType.SMB:
+            {
+                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
+                await conn.DeleteAsync(smbDao);
+                
                 break;
+            }
+
             case HandlerType.TCP:
+            {
+                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
+                await conn.DeleteAsync(tcpDao);
+                
                 break;
+            }
+            
             case HandlerType.EXTERNAL:
                 break;
             

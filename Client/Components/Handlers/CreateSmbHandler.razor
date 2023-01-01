@@ -1,0 +1,49 @@
+﻿@using SharpC2.API.Requests
+
+@inject SharpC2Api Api
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudTextField T="string" @bind-Value="_name" Label="Name" Required="true" RequiredError="Name is required" Immediate="@true"/>
+            <MudTextField T="string" @bind-Value="_pipeName" Label="Pipe Name" Required="true" RequiredError="Pipe Name is required" Immediate="@true"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; }
+    
+    private MudForm _form;
+    private bool _success;
+    
+    private string _name;
+    private string _pipeName;
+    
+    private async Task Submit()
+    {
+        if (!_success)
+        {
+            await _form.Validate();
+            return;
+        }
+        
+        var request = new SmbHandlerRequest
+        {
+            Name = _name,
+            PipeName = _pipeName
+        };
+
+        await Api.CreateSmbHandler(request);
+        MudDialog.Close(DialogResult.Ok(true));   
+    }
+    
+    private void Cancel()
+        => MudDialog.Cancel();
+}

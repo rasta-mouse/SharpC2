@@ -8,9 +8,9 @@ public class HandlerMaps : Profile
 {
     public HandlerMaps()
     {
-        CreateMap<HttpHandlerResponse, HttpHandler>()
-            .IncludeAllDerived();
-
+        CreateMap<HttpHandlerResponse, HttpHandler>().IncludeAllDerived();
+        CreateMap<SmbHandlerResponse, SmbHandler>().IncludeAllDerived();
+        CreateMap<TcpHandlerResponse, TcpHandler>().IncludeAllDerived();
         CreateMap<HostedFileResponse, HostedFile>();
     }
 }

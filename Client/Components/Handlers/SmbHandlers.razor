@@ -1,0 +1,84 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+
+@implements IDisposable
+
+@using Client.Models.Handlers
+
+<MudTable Items="@_handlers" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Pipe Name</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="PipeName">@context.PipeName</MudTd>
+        <MudTd>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteHandler(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+<MudTooltip Text="Add Handler">
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Class="mt-4"
+            OnClick="OpenCreateHandler"/>
+</MudTooltip>
+
+@code {
+    
+    private bool _loading = true;
+    private List<SmbHandler> _handlers = new();
+    
+    protected override void OnInitialized()
+    {
+        Hub.SmbHandlerCreated += OnSmbHandlerCreated;
+        Hub.SmbHandlerDeleted += OnSmbHandlerDeleted;
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var handlers = await Api.GetSmbHandlers();
+
+        _handlers.AddRange(handlers);
+        _loading = false;
+    }
+    
+    private async Task OnSmbHandlerCreated(string name)
+    {
+        var handler = await Api.GetSmbHandler(name);
+
+        if (handler is null)
+            return;
+
+        _handlers.Add(handler);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task DeleteHandler(Handler handler)
+    {
+        await Api.DeleteHandler(handler);
+    }
+
+    private async Task OnSmbHandlerDeleted(string name)
+    {
+        _handlers.RemoveAll(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OpenCreateHandler()
+    {
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<CreateSmbHandler>("", options);
+    }
+
+    public void Dispose()
+    {
+        Hub.SmbHandlerCreated -= OnSmbHandlerCreated;
+        Hub.SmbHandlerDeleted -= OnSmbHandlerDeleted;
+    }
+}

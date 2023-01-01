@@ -8,6 +8,10 @@ public class SharpC2Hub
 {
     public Func<string, Task> HttpHandlerCreated { get; set; }
     public Func<string, Task> HttpHandlerDeleted { get; set; }
+    public Func<string, Task> TcpHandlerCreated { get; set; }
+    public Func<string, Task> TcpHandlerDeleted { get; set; }
+    public Func<string, Task> SmbHandlerCreated { get; set; }
+    public Func<string, Task> SmbHandlerDeleted { get; set; }
     
     public Func<string, Task> NewDrone { get; set; }
     public Func<string, Task> DroneCheckedIn { get; set; }
@@ -44,6 +48,10 @@ public class SharpC2Hub
 
         _connection.On<string>("HttpHandlerCreated", OnHttpHandlerCreated);
         _connection.On<string>("HttpHandlerDeleted", OnHttpHandlerDeleted);
+        _connection.On<string>("SmbHandlerCreated", OnSmbHandlerCreated);
+        _connection.On<string>("SmbHandlerDeleted", OnSmbHandlerDeleted);
+        _connection.On<string>("TcpHandlerCreated", OnTcpHandlerCreated);
+        _connection.On<string>("TcpHandlerDeleted", OnTcpHandlerDeleted);
         
         _connection.On<string>("NewDrone", OnNewDrone);
         _connection.On<string>("DroneCheckedIn", OnDroneCheckedIn);
@@ -80,6 +88,10 @@ public class SharpC2Hub
 
     private void OnHttpHandlerCreated(string name) => HttpHandlerCreated?.Invoke(name);
     private void OnHttpHandlerDeleted(string name) => HttpHandlerDeleted?.Invoke(name);
+    private void OnSmbHandlerCreated(string name) => SmbHandlerCreated?.Invoke(name);
+    private void OnSmbHandlerDeleted(string name) => SmbHandlerDeleted?.Invoke(name);
+    private void OnTcpHandlerCreated(string name) => TcpHandlerCreated?.Invoke(name);
+    private void OnTcpHandlerDeleted(string name) => TcpHandlerDeleted?.Invoke(name);
     
     private void OnNewDrone(string drone) => NewDrone?.Invoke(drone);
     private void OnDroneCheckedIn(string drone) => DroneCheckedIn?.Invoke(drone);

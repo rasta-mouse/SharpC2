@@ -99,6 +99,54 @@ public class SharpC2Api
         await _client.ExecuteAsync(request);
     }
 
+    public async Task<IEnumerable<SmbHandler>> GetSmbHandlers()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb");
+        var response = await _client.ExecuteAsync<IEnumerable<SmbHandlerResponse>>(request);
+
+        return _mapper.Map<IEnumerable<SmbHandlerResponse>, IEnumerable<SmbHandler>>(response.Data);
+    }
+
+    public async Task<SmbHandler> GetSmbHandler(string name)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb/{name}");
+        var response = await _client.ExecuteAsync<SmbHandlerResponse>(request);
+
+        return _mapper.Map<SmbHandlerResponse, SmbHandler>(response.Data);
+    }
+
+    public async Task CreateSmbHandler(SmbHandlerRequest handlerRequest)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb", Method.Post);
+        request.AddParameter("application/json", JsonSerializer.Serialize(handlerRequest), ParameterType.RequestBody);
+
+        await _client.ExecuteAsync(request);
+    }
+    
+    public async Task<IEnumerable<TcpHandler>> GetTcpHandlers()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp");
+        var response = await _client.ExecuteAsync<IEnumerable<TcpHandlerResponse>>(request);
+
+        return _mapper.Map<IEnumerable<TcpHandlerResponse>, IEnumerable<TcpHandler>>(response.Data);
+    }
+    
+    public async Task<TcpHandler> GetTcpHandler(string name)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp/{name}");
+        var response = await _client.ExecuteAsync<TcpHandlerResponse>(request);
+
+        return _mapper.Map<TcpHandlerResponse, TcpHandler>(response.Data);
+    }
+    
+    public async Task CreateTcpHandler(TcpHandlerRequest handlerRequest)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp", Method.Post);
+        request.AddParameter("application/json", JsonSerializer.Serialize(handlerRequest), ParameterType.RequestBody);
+
+        await _client.ExecuteAsync(request);
+    }
+
     public async Task HostFile(HostedFileRequest fileRequest)
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.HostedFiles}", Method.Post);

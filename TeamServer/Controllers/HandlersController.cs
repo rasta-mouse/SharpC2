@@ -34,7 +34,25 @@ public class HandlersController : ControllerBase
     public ActionResult<IEnumerable<HttpHandlerResponse>> GetHttpHandlers()
     {
         var handlers = _handlers.Get<HttpHandler>();
-        var response = _mapper.Map<IEnumerable<Handler>, IEnumerable<HttpHandlerResponse>>(handlers);
+        var response = _mapper.Map<IEnumerable<HttpHandler>, IEnumerable<HttpHandlerResponse>>(handlers);
+
+        return Ok(response);
+    }
+    
+    [HttpGet("tcp")]
+    public ActionResult<IEnumerable<TcpHandlerResponse>> GetTcpHandlers()
+    {
+        var handlers = _handlers.Get<TcpHandler>();
+        var response = _mapper.Map<IEnumerable<TcpHandler>, IEnumerable<TcpHandlerResponse>>(handlers);
+
+        return Ok(response);
+    }
+    
+    [HttpGet("smb")]
+    public ActionResult<IEnumerable<SmbHandlerResponse>> GetSmbHandlers()
+    {
+        var handlers = _handlers.Get<SmbHandler>();
+        var response = _mapper.Map<IEnumerable<SmbHandler>, IEnumerable<SmbHandlerResponse>>(handlers);
 
         return Ok(response);
     }
@@ -48,6 +66,30 @@ public class HandlersController : ControllerBase
             return NotFound();
         
         var response = _mapper.Map<HttpHandler, HttpHandlerResponse>(handler);
+        return Ok(response);
+    }
+    
+    [HttpGet("tcp/{name}")]
+    public ActionResult<IEnumerable<TcpHandlerResponse>> GetTcpHandler(string name)
+    {
+        var handler = _handlers.Get<TcpHandler>(name);
+
+        if (handler is null)
+            return NotFound();
+        
+        var response = _mapper.Map<TcpHandler, TcpHandlerResponse>(handler);
+        return Ok(response);
+    }
+    
+    [HttpGet("smb/{name}")]
+    public ActionResult<IEnumerable<SmbHandlerResponse>> GetSmbHandler(string name)
+    {
+        var handler = _handlers.Get<SmbHandler>(name);
+
+        if (handler is null)
+            return NotFound();
+        
+        var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
         return Ok(response);
     }
     
@@ -70,6 +112,40 @@ public class HandlersController : ControllerBase
         var response = _mapper.Map<HttpHandler, HttpHandlerResponse>(handler);
         return Ok(response);
     }
+    
+    [HttpPost("tcp")]
+    public async Task<ActionResult<TcpHandlerResponse>> CreateTcpHandler([FromBody] TcpHandlerRequest request)
+    {
+        var handler = new TcpHandler
+        {
+            Name = request.Name,
+            Address = request.Address,
+            Port = request.Port,
+            Loopback = request.Loopback
+        };
+
+        await _handlers.Add(handler);
+        await _hub.Clients.All.TcpHandlerCreated(handler.Name);
+
+        var response = _mapper.Map<TcpHandler, TcpHandlerResponse>(handler);
+        return Ok(response);
+    }
+    
+    [HttpPost("smb")]
+    public async Task<ActionResult<TcpHandlerResponse>> CreateSmbHandler([FromBody] SmbHandlerRequest request)
+    {
+        var handler = new SmbHandler
+        {
+            Name = request.Name,
+            PipeName = request.PipeName
+        };
+
+        await _handlers.Add(handler);
+        await _hub.Clients.All.SmbHandlerCreated(handler.Name);
+
+        var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
+        return Ok(response);
+    }
 
     [HttpDelete("{name}")]
     public async Task<IActionResult> DeleteHandler(string name)
@@ -78,6 +154,8 @@ public class HandlersController : ControllerBase
         
         if (handler is null)
             return NotFound();
+        
+        await _handlers.Delete(handler);
 
         switch (handler.HandlerType)
         {
@@ -85,9 +163,22 @@ public class HandlersController : ControllerBase
                 ((HttpHandler)handler).Stop();
                 await _hub.Clients.All.HttpHandlerDeleted(handler.Name);
                 break;
+
+            case HandlerType.SMB:
+                await _hub.Clients.All.SmbHandlerDeleted(handler.Name);
+                break;
+                
+            case HandlerType.TCP:
+                await _hub.Clients.All.TcpHandlerDeleted(handler.Name);
+                break;
+            
+            case HandlerType.EXTERNAL:
+                break;
+            
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-        
-        await _handlers.Delete(handler);
+
         return NoContent();
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Client.Models.Handlers;
 
-public class HttpHandler : Handler
+public sealed class HttpHandler : Handler
 {
     public int BindPort { get; set; }
     public string ConnectAddress { get; set; }

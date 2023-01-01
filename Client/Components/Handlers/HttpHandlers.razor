@@ -56,17 +56,11 @@
         _loading = false;
     }
 
-    private async Task DeleteHandler(HttpHandler handler)
+    private async Task DeleteHandler(Handler handler)
     {
         await Api.DeleteHandler(handler);
     }
-
-    private async Task OnHttpHandlerDeleted(string name)
-    {
-        _handlers.RemoveAll(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        await InvokeAsync(StateHasChanged);
-    }
-
+    
     private async Task OnHttpHandlerCreated(string name)
     {
         var handler = await Api.GetHttpHandler(name);
@@ -75,6 +69,12 @@
             return;
 
         _handlers.Add(handler);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnHttpHandlerDeleted(string name)
+    {
+        _handlers.RemoveAll(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         await InvokeAsync(StateHasChanged);
     }
 

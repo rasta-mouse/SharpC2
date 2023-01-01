@@ -1,4 +1,6 @@
-﻿namespace TeamServer.Handlers;
+﻿using TeamServer.Utilities;
+
+namespace TeamServer.Handlers;
 
 public sealed class SmbHandler : Handler
 {
@@ -9,6 +11,7 @@ public sealed class SmbHandler : Handler
 
     public SmbHandler()
     {
+        Id = Helpers.GenerateShortGuid();
         PayloadType = PayloadType.BIND_PIPE;
     }
 }

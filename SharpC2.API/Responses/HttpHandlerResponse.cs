@@ -1,6 +1,6 @@
 ﻿namespace SharpC2.API.Responses;
 
-public class HttpHandlerResponse
+public sealed class HttpHandlerResponse
 {
     public string Id { get; set; }
     public string Name { get; set; }

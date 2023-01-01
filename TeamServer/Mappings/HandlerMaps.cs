@@ -13,5 +13,11 @@ public class HandlerMaps : Profile
     {
         CreateMap<HttpHandler, HttpHandlerResponse>();
         CreateMap<HttpHandler, HttpHandlerDao>();
+
+        CreateMap<TcpHandler, TcpHandlerResponse>();
+        CreateMap<TcpHandler, TcpHandlerDao>();
+
+        CreateMap<SmbHandler, SmbHandlerResponse>();
+        CreateMap<SmbHandler, SmbHandlerDao>();
     }
 }

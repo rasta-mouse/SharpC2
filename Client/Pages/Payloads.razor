@@ -48,11 +48,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var handlers = await Api.GetHttpHandlers();
-        _handlers.AddRange(handlers);
-    }
+        var http = await Api.GetHttpHandlers();
+        _handlers.AddRange(http);
 
-    private static string Url => $"http://localhost:5248/api/v1/payloads?handler=http&format=4";
+        var smb = await Api.GetSmbHandlers();
+        _handlers.AddRange(smb);
+
+        var tcp = await Api.GetTcpHandlers();
+        _handlers.AddRange(tcp);
+    }
 
     private async Task Download()
     {

@@ -18,6 +18,8 @@ public class DatabaseService : IDatabaseService
         {
             conn.CreateTable<UserAuthDao>();
             conn.CreateTable<HttpHandlerDao>();
+            conn.CreateTable<SmbHandlerDao>();
+            conn.CreateTable<TcpHandlerDao>();
             conn.CreateTable<WebLogDao>();
             conn.CreateTable<HostedFileDao>();
             conn.CreateTable<CryptoDao>();
