@@ -1,11 +1,24 @@
-﻿using TeamServer.Interfaces;
+﻿using TeamServer.Drones;
+using TeamServer.Interfaces;
 
 namespace TeamServer.Services;
 
 public class PeerToPeerService : IPeerToPeerService
 {
     private readonly Dictionary<string, HashSet<string>> _adjacencyList = new();
-    
+
+    public void InitFromDrones(IEnumerable<Drone> drones)
+    {
+        drones = drones.ToArray();
+        
+        foreach (var drone in drones)
+            AddVertex(drone.Metadata.Id);
+
+        foreach (var drone in drones)
+            if (!string.IsNullOrWhiteSpace(drone.Parent))
+                AddEdge(drone.Parent, drone.Metadata.Id);
+    }
+
     public void AddVertex(string vertex)
     {
         if (!_adjacencyList.ContainsKey(vertex))

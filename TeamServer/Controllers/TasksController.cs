@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -25,16 +23,14 @@ public class TasksController : ControllerBase
 {
     private readonly ITaskService _tasks;
     private readonly IDroneService _drones;
-    private readonly IMapper _mapper;
     private readonly ICryptoService _crypto;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
-    public TasksController(ITaskService tasks, IDroneService drones, IMapper mapper,
-        IHubContext<NotificationHub, INotificationHub> hub, ICryptoService crypto)
+    public TasksController(ITaskService tasks, IDroneService drones, IHubContext<NotificationHub, INotificationHub> hub,
+        ICryptoService crypto)
     {
         _tasks = tasks;
         _drones = drones;
-        _mapper = mapper;
         _hub = hub;
         _crypto = crypto;
     }
@@ -43,7 +39,7 @@ public class TasksController : ControllerBase
     public async Task<ActionResult<IEnumerable<TaskRecordResponse>>> GetTaskRecords()
     {
         var tasks = await _tasks.GetAll();
-        var response = _mapper.Map<IEnumerable<TaskRecord>, IEnumerable<TaskRecordResponse>>(tasks);
+        var response = tasks.Select(t => (TaskRecordResponse)t);
 
         return Ok(response);
     }
@@ -57,7 +53,7 @@ public class TasksController : ControllerBase
             return NotFound();
         
         var tasks = await _tasks.GetAllByDrone(droneId);
-        var response = _mapper.Map<IEnumerable<TaskRecord>, IEnumerable<TaskRecordResponse>>(tasks);
+        var response = tasks.Select(t => (TaskRecordResponse)t);
 
         return Ok(response);
     }
@@ -75,32 +71,20 @@ public class TasksController : ControllerBase
         if (task is null)
             return NotFound("Task not found");
         
-        var response = _mapper.Map<TaskRecord, TaskRecordResponse>(task);
-        return Ok(response);
+        return Ok((TaskRecordResponse)task);
     }
 
     [HttpPost("{droneId}")]
     public async Task<ActionResult<TaskRecordResponse>> GetTaskRecord(string droneId, [FromBody] TaskRequest request)
     {
-        var record = new TaskRecord
-        {
-            TaskId = Helpers.GenerateShortGuid(),
-            DroneId = droneId,
-            Nick = HttpContext.GetClaimFromContext(),
-            Command = request.Command,
-            Alias = request.Alias,
-            Arguments = request.Arguments,
-            ArtefactPath = request.ArtefactPath,
-            Artefact = request.Artefact,
-            Status = TaskStatus.PENDING,
-            ResultType = request.ResultType
-        };
+        var record = (TaskRecord)request;
+        record.DroneId = droneId;
+        record.Nick = HttpContext.GetClaimFromContext();
 
         await _tasks.Add(record);
         await _hub.Clients.All.DroneTasked(record.DroneId, record.TaskId);
 
-        var response = _mapper.Map<TaskRecord, TaskRecordResponse>(record);
-        return Ok(response);
+        return Ok((TaskRecordResponse)record);
     }
     
     [HttpDelete("{droneId}/{taskId}")]

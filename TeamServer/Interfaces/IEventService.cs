@@ -6,6 +6,9 @@ public interface IEventService
 {
     Task Add(SharpC2Event ev);
 
-    Task<IEnumerable<T>> Get<T>() where T : SharpC2Event;
-    Task<T> Get<T>(string id) where T : SharpC2Event;
+    Task<IEnumerable<UserAuthEvent>> GetAuthEvents();
+    Task<UserAuthEvent> GetAuthEvent(string id);
+
+    Task<IEnumerable<WebLogEvent>> GetWebLogEvents();
+    Task<WebLogEvent> GetWebLogEvent(string id);
 }

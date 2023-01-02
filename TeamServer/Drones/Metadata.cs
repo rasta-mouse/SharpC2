@@ -1,5 +1,7 @@
 ﻿using ProtoBuf;
 
+using SharpC2.API.Responses;
+
 namespace TeamServer.Drones;
 
 [ProtoContract]
@@ -28,6 +30,21 @@ public sealed class Metadata
     
     [ProtoMember(8)]
     public IntegrityLevel Integrity { get; set; }
+
+    public static implicit operator MetadataResponse(Metadata metadata)
+    {
+        return new MetadataResponse
+        {
+            Id = metadata.Id,
+            Identity = metadata.Identity,
+            Address = metadata.Address,
+            Hostname = metadata.Hostname,
+            Process = metadata.Process,
+            Pid = metadata.Pid,
+            Is64Bit = metadata.Is64Bit,
+            Integrity = (int)metadata.Integrity
+        };
+    }
 }
 
 public enum IntegrityLevel

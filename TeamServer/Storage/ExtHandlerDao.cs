@@ -4,39 +4,39 @@ using TeamServer.Handlers;
 
 namespace TeamServer.Storage;
 
-[Table("smb_handlers")]
-public sealed class SmbHandlerDao
+[Table("ext_handlers")]
+public sealed class ExtHandlerDao
 {
     [PrimaryKey, Column("id")]
     public string Id { get; set; }
     
     [Column("name")]
     public string Name { get; set; }
-
-    [Column("pipe_name")]
-    public string PipeName { get; set; }
+    
+    [Column("bind_port")]
+    public int BindPort { get; set; }
     
     [Column("payload_type")]
     public int PayloadType { get; set; }
 
-    public static implicit operator SmbHandlerDao(SmbHandler handler)
+    public static implicit operator ExtHandlerDao(ExtHandler handler)
     {
-        return new SmbHandlerDao
+        return new ExtHandlerDao
         {
             Id = handler.Id,
             Name = handler.Name,
-            PipeName = handler.PipeName,
+            BindPort = handler.BindPort,
             PayloadType = (int)handler.PayloadType
         };
     }
-    
-    public static implicit operator SmbHandler(SmbHandlerDao dao)
+
+    public static implicit operator ExtHandler(ExtHandlerDao dao)
     {
-        return new SmbHandler
+        return new ExtHandler
         {
             Id = dao.Id,
             Name = dao.Name,
-            PipeName = dao.PipeName,
+            BindPort = dao.BindPort,
             PayloadType = (PayloadType)dao.PayloadType
         };
     }

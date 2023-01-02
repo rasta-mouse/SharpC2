@@ -1,5 +1,7 @@
 ﻿using ProtoBuf;
 
+using TeamServer.Tasks;
+
 namespace TeamServer.Messages;
 
 [ProtoContract]
@@ -16,4 +18,15 @@ public class DroneTask
 
     [ProtoMember(4)]
     public byte[] Artefact { get; set; }
+
+    public static implicit operator DroneTask(TaskRecord record)
+    {
+        return new DroneTask
+        {
+            TaskId = record.TaskId,
+            Command = record.Command,
+            Arguments = record.Arguments,
+            Artefact = record.Artefact
+        };
+    }
 }

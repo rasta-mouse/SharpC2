@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using TeamServer.Interfaces;
+﻿using TeamServer.Interfaces;
 using TeamServer.Messages;
 using TeamServer.Storage;
 using TeamServer.Tasks;
@@ -12,22 +10,18 @@ namespace TeamServer.Services;
 public sealed class TaskService : ITaskService
 {
     private readonly IDatabaseService _db;
-    private readonly IMapper _mapper;
-    
+
     private readonly Dictionary<string, Queue<C2Frame>> _cached = new();
 
-    public TaskService(IDatabaseService db, IMapper mapper)
+    public TaskService(IDatabaseService db)
     {
         _db = db;
-        _mapper = mapper;
     }
 
     public async Task Add(TaskRecord record)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
-
-        await conn.InsertAsync(dao);
+        await conn.InsertAsync((TaskRecordDao)record);
     }
 
     public void CacheFrame(string droneId, C2Frame frame)
@@ -41,42 +35,43 @@ public sealed class TaskService : ITaskService
     public async Task<IEnumerable<TaskRecord>> GetAll()
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<TaskRecordDao>().ToArrayAsync();
+        var records = await conn.Table<TaskRecordDao>().ToArrayAsync();
 
-        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
+        return records.Select(r => (TaskRecord)r);
     }
 
     public async Task<TaskRecord> Get(string droneId, string taskId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r => r.DroneId.Equals(droneId)
-                                                                             && r.TaskId.Equals(taskId));
-
-        return _mapper.Map<TaskRecordDao, TaskRecord>(dao);
+        
+        return await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r =>
+            r.DroneId.Equals(droneId) && r.TaskId.Equals(taskId));
     }
 
     public async Task<IEnumerable<TaskRecord>> GetAllByDrone(string droneId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<TaskRecordDao>().Where(r => r.DroneId.Equals(droneId)).ToArrayAsync();
+        var records = await conn.Table<TaskRecordDao>().Where(r => r.DroneId.Equals(droneId)).ToArrayAsync();
 
-        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
+        return records.Select(r => (TaskRecord)r);
     }
 
     public async Task<TaskRecord> Get(string taskId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r => r.TaskId.Equals(taskId));
-
-        return _mapper.Map<TaskRecordDao, TaskRecord>(dao);
+        
+        return await conn.Table<TaskRecordDao>().FirstOrDefaultAsync(r =>
+            r.TaskId.Equals(taskId));
     }
 
     public async Task<IEnumerable<TaskRecord>> GetPending(string droneId)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<TaskRecordDao>().Where(r => r.Status == (int)TaskStatus.PENDING).ToArrayAsync();
+        
+        var records = await conn.Table<TaskRecordDao>().Where(r =>
+            r.Status == (int)TaskStatus.PENDING).ToArrayAsync();
 
-        return _mapper.Map<IEnumerable<TaskRecordDao>, IEnumerable<TaskRecord>>(dao);
+        return records.Select(r => (TaskRecord)r);
     }
 
     public IEnumerable<C2Frame> GetCachedFrames(string droneId)
@@ -95,15 +90,13 @@ public sealed class TaskService : ITaskService
     public async Task Update(TaskRecord record)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
-
-        await conn.UpdateAsync(dao);
+        await conn.UpdateAsync((TaskRecordDao)record);
     }
 
     public async Task Update(IEnumerable<TaskRecord> records)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<IEnumerable<TaskRecord>, IEnumerable<TaskRecordDao>>(records);
+        var dao = records.Select(r => (TaskRecordDao)r);
 
         await conn.UpdateAllAsync(dao);
     }
@@ -111,8 +104,6 @@ public sealed class TaskService : ITaskService
     public async Task Delete(TaskRecord record)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<TaskRecord, TaskRecordDao>(record);
-
-        await conn.DeleteAsync(dao);
+        await conn.DeleteAsync((TaskRecordDao)record);
     }
 }

@@ -4,8 +4,7 @@ public abstract class Handler
 {
     public string Id { get; set; }
     public string Name { get; set; }
-    public PayloadType PayloadType { get; protected set; }
-    
+    public PayloadType PayloadType { get; set; }
     public abstract HandlerType HandlerType { get; }
 }
 

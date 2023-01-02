@@ -1,4 +1,7 @@
-﻿using TeamServer.Utilities;
+﻿using SharpC2.API.Requests;
+using SharpC2.API.Responses;
+
+using TeamServer.Utilities;
 
 namespace TeamServer.Handlers;
 
@@ -10,8 +13,27 @@ public sealed class HostedFile
     public string Filename { get; set; }
     public long Size { get; set; }
 
-    public HostedFile()
+    public static implicit operator HostedFile(HostedFileRequest request)
     {
-        Id = Helpers.GenerateShortGuid();
+        return new HostedFile
+        {
+            Id = Helpers.GenerateShortGuid(),
+            Handler = request.Handler,
+            Uri = request.Uri,
+            Filename = request.Filename,
+            Size = request.Bytes.LongLength
+        };
+    }
+
+    public static implicit operator HostedFileResponse(HostedFile file)
+    {
+        return new HostedFileResponse
+        {
+            Id = file.Id,
+            Handler = file.Handler,
+            Uri = file.Uri,
+            Filename = file.Filename,
+            Size = file.Size
+        };
     }
 }

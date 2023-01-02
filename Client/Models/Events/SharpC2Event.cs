@@ -3,8 +3,9 @@
 public abstract class SharpC2Event
 {
     public string Id { get; set; }
-    public EventType Type { get; }
     public DateTime Date { get; set; }
+    
+    public abstract EventType Type { get; }
 }
 
 public enum EventType

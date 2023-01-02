@@ -2,6 +2,9 @@
 using System.Net.Sockets;
 using System.Text;
 
+using SharpC2.API.Requests;
+using SharpC2.API.Responses;
+
 using TeamServer.Drones;
 using TeamServer.Interfaces;
 using TeamServer.Messages;
@@ -9,12 +12,11 @@ using TeamServer.Utilities;
 
 namespace TeamServer.Handlers;
 
-public class ExternalHandler : Handler
+public class ExtHandler : Handler
 {
     public override HandlerType HandlerType
         => HandlerType.EXTERNAL;
 
-    public string Name { get; set; }
     public int BindPort { get; set; }
 
     private Metadata _metadata;
@@ -25,10 +27,8 @@ public class ExternalHandler : Handler
     
     private readonly CancellationTokenSource _tokenSource = new();
 
-    public ExternalHandler()
+    public ExtHandler()
     {
-        PayloadType = PayloadType.EXTERNAL;
-        
         _payloads = Program.GetService<IPayloadService>();
         _crypto = Program.GetService<ICryptoService>();
         _server = Program.GetService<IServerService>();
@@ -96,5 +96,26 @@ public class ExternalHandler : Handler
     public void Stop()
     {
         _tokenSource.Cancel();
+    }
+
+    public static implicit operator ExtHandler(ExtHandlerRequest request)
+    {
+        return new ExtHandler
+        {
+            Id = Helpers.GenerateShortGuid(),
+            Name = request.Name,
+            BindPort = request.BindPort,
+            PayloadType = PayloadType.EXTERNAL
+        };
+    }
+
+    public static implicit operator ExtHandlerResponse(ExtHandler handler)
+    {
+        return new ExtHandlerResponse
+        {
+            Id = handler.Id,
+            Name = handler.Name,
+            BindPort = handler.BindPort
+        };
     }
 }

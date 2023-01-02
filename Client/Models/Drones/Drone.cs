@@ -1,5 +1,7 @@
 ﻿using System.Timers;
 
+using SharpC2.API.Responses;
+
 namespace Client.Models.Drones;
 
 public class Drone : IDisposable
@@ -77,11 +79,26 @@ public class Drone : IDisposable
         _timer.Stop();
         _timer.Dispose();
     }
-    
-    public enum DroneStatus
+
+    public static implicit operator Drone(DroneResponse response)
     {
-        ALIVE,
-        LOST,
-        DEAD
+        if (response is null)
+            return null;
+
+        return new Drone
+        {
+            Metadata = response.Metadata,
+            FirstSeen = response.FirstSeen,
+            LastSeen = response.LastSeen,
+            Status = (DroneStatus)response.Status,
+            Parent = response.Parent
+        };
     }
+}
+
+public enum DroneStatus
+{
+    ALIVE,
+    LOST,
+    DEAD
 }

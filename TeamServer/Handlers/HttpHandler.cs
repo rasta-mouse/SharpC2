@@ -1,6 +1,10 @@
 ﻿using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.FileProviders;
+
+using SharpC2.API.Requests;
+using SharpC2.API.Responses;
+
 using TeamServer.Hubs;
 using TeamServer.Interfaces;
 using TeamServer.Middleware;
@@ -21,18 +25,6 @@ public class HttpHandler : Handler
         => HandlerType.HTTP;
 
     public string FilePath { get; set; }
-
-    public HttpHandler(bool secure)
-    {
-        Id = Helpers.GenerateShortGuid();
-        Secure = secure;
-        PayloadType = secure ? PayloadType.REVERSE_HTTPS : PayloadType.REVERSE_HTTP;
-    }
-
-    public HttpHandler()
-    {
-        
-    }
 
     private void CreateDataDirectory()
     {
@@ -98,8 +90,6 @@ public class HttpHandler : Handler
         services.AddSingleton(Program.GetService<IServerService>());
         services.AddSingleton(Program.GetService<IEventService>());
         services.AddSingleton(Program.GetService<IHubContext<NotificationHub, INotificationHub>>());
-        
-        services.AddAutoMapper(typeof(Program));
     }
 
     private static void ConfigureKestrel(KestrelServerOptions kestrel)
@@ -117,5 +107,34 @@ public class HttpHandler : Handler
         
         // delete hosted files
         Directory.Delete(FilePath, true);
+    }
+    
+    public static implicit operator HttpHandler(HttpHandlerRequest request)
+    {
+        return new HttpHandler
+        {
+            Id = Helpers.GenerateShortGuid(),
+            Name = request.Name,
+            BindPort = request.BindPort,
+            ConnectAddress = request.ConnectAddress,
+            ConnectPort = request.ConnectPort,
+            Secure = request.Secure,
+            PayloadType = request.Secure ? PayloadType.REVERSE_HTTPS : PayloadType.REVERSE_HTTP
+        };
+    }
+
+    public static implicit operator HttpHandlerResponse(HttpHandler handler)
+    {
+        return new HttpHandlerResponse
+        {
+            Id = handler.Id,
+            Name = handler.Name,
+            BindPort = handler.BindPort,
+            ConnectAddress = handler.ConnectAddress,
+            ConnectPort = handler.ConnectPort,
+            Secure = handler.Secure,
+            HandlerType = (int)handler.HandlerType,
+            PayloadType = (int)handler.PayloadType,
+        };
     }
 }

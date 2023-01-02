@@ -2,8 +2,6 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
-using AutoMapper;
-
 using Client.Models.Drones;
 using Client.Models.Events;
 using Client.Models.Handlers;
@@ -21,16 +19,10 @@ namespace Client.Services;
 public class SharpC2Api
 {
     private RestClient _client;
-    private readonly IMapper _mapper;
-    
+
     public static string AcceptedThumbprint { get; set; }
 
     public Action<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors> SslException { get; set; }
-
-    public SharpC2Api(IMapper mapper)
-    {
-        _mapper = mapper;
-    }
 
     public async Task Initialise(string server)
     {
@@ -74,21 +66,21 @@ public class SharpC2Api
         SslException?.Invoke(msg, cert, chain, errs);
         return false;
     }
+    
+    public async Task<IEnumerable<HttpHandler>> GetHttpHandlers()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/http");
+        var response = await _client.ExecuteAsync<IEnumerable<HttpHandlerResponse>>(request);
+
+        return response.Data.Select(h => (HttpHandler)h);
+    }
 
     public async Task<HttpHandler> GetHttpHandler(string name)
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/http/{name}");
         var response = await _client.ExecuteAsync<HttpHandlerResponse>(request);
 
-        return _mapper.Map<HttpHandlerResponse, HttpHandler>(response.Data);
-    }
-
-    public async Task<IEnumerable<HttpHandler>> GetHttpHandlers()
-    {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/http");
-        var response = await _client.ExecuteAsync<IEnumerable<HttpHandlerResponse>>(request);
-
-        return _mapper.Map<IEnumerable<HttpHandlerResponse>, IEnumerable<HttpHandler>>(response.Data);
+        return response.Data;
     }
 
     public async Task CreateHttpHandler(HttpHandlerRequest handlerRequest)
@@ -104,7 +96,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb");
         var response = await _client.ExecuteAsync<IEnumerable<SmbHandlerResponse>>(request);
 
-        return _mapper.Map<IEnumerable<SmbHandlerResponse>, IEnumerable<SmbHandler>>(response.Data);
+        return response.Data.Select(h => (SmbHandler)h);
     }
 
     public async Task<SmbHandler> GetSmbHandler(string name)
@@ -112,7 +104,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb/{name}");
         var response = await _client.ExecuteAsync<SmbHandlerResponse>(request);
 
-        return _mapper.Map<SmbHandlerResponse, SmbHandler>(response.Data);
+        return response.Data;
     }
 
     public async Task CreateSmbHandler(SmbHandlerRequest handlerRequest)
@@ -128,7 +120,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp");
         var response = await _client.ExecuteAsync<IEnumerable<TcpHandlerResponse>>(request);
 
-        return _mapper.Map<IEnumerable<TcpHandlerResponse>, IEnumerable<TcpHandler>>(response.Data);
+        return response.Data.Select(h => (TcpHandler)h);
     }
     
     public async Task<TcpHandler> GetTcpHandler(string name)
@@ -136,7 +128,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp/{name}");
         var response = await _client.ExecuteAsync<TcpHandlerResponse>(request);
 
-        return _mapper.Map<TcpHandlerResponse, TcpHandler>(response.Data);
+        return response.Data;
     }
     
     public async Task CreateTcpHandler(TcpHandlerRequest handlerRequest)
@@ -150,20 +142,20 @@ public class SharpC2Api
     public async Task<IEnumerable<ExtHandler>> GetExtHandlers()
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext");
-        var response = await _client.ExecuteAsync<IEnumerable<ExternalHandlerResponse>>(request);
+        var response = await _client.ExecuteAsync<IEnumerable<ExtHandlerResponse>>(request);
 
-        return _mapper.Map<IEnumerable<ExternalHandlerResponse>, IEnumerable<ExtHandler>>(response.Data);
+        return response.Data.Select(h => (ExtHandler)h);
     }
     
     public async Task<ExtHandler> GetExtHandler(string name)
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext/{name}");
-        var response = await _client.ExecuteAsync<ExternalHandlerResponse>(request);
+        var response = await _client.ExecuteAsync<ExtHandlerResponse>(request);
 
-        return _mapper.Map<ExternalHandlerResponse, ExtHandler>(response.Data);
+        return response.Data;
     }
     
-    public async Task CreateExtHandler(ExternalHandlerRequest handlerRequest)
+    public async Task CreateExtHandler(ExtHandlerRequest handlerRequest)
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext", Method.Post);
         request.AddParameter("application/json", JsonSerializer.Serialize(handlerRequest), ParameterType.RequestBody);
@@ -184,7 +176,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.HostedFiles}");
         var response = await _client.ExecuteAsync<IEnumerable<HostedFileResponse>>(request);
 
-        return _mapper.Map<IEnumerable<HostedFileResponse>, IEnumerable<HostedFile>>(response.Data);
+        return response.Data.Select(f => (HostedFile)f);
     }
 
     public async Task<HostedFile> GetHostedFile(string id)
@@ -192,7 +184,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.HostedFiles}/{id}");
         var response = await _client.ExecuteAsync<HostedFileResponse>(request);
 
-        return _mapper.Map<HostedFileResponse, HostedFile>(response.Data);
+        return response.Data;
     }
 
     public async Task DeleteHostedFile(string id)
@@ -212,7 +204,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Drones}");
         var response = await _client.ExecuteAsync<IEnumerable<DroneResponse>>(request);
 
-        return _mapper.Map<IEnumerable<DroneResponse>, IEnumerable<Drone>>(response.Data);
+        return response.Data.Select(d => (Drone)d);
     }
     
     public async Task<Drone> GetDrone(string id)
@@ -220,7 +212,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Drones}/{id}");
         var response = await _client.ExecuteAsync<DroneResponse>(request);
 
-        return _mapper.Map<DroneResponse, Drone>(response.Data);
+        return response.Data;
     }
 
     public async Task DeleteDrone(string id)
@@ -237,20 +229,20 @@ public class SharpC2Api
         await _client.ExecuteAsync(request);
     }
     
-    public async Task<TaskRecord> GetTask(string droneId, string taskId)
-    {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Tasks}/{droneId}/{taskId}");
-        var response = await _client.ExecuteAsync<TaskRecordResponse>(request);
-
-        return _mapper.Map<TaskRecordResponse, TaskRecord>(response.Data);
-    }
-
     public async Task<IEnumerable<TaskRecord>> GetTasks(string droneId)
     {
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Tasks}/{droneId}");
         var response = await _client.ExecuteAsync<IEnumerable<TaskRecordResponse>>(request);
 
-        return _mapper.Map<IEnumerable<TaskRecordResponse>, IEnumerable<TaskRecord>>(response.Data);
+        return response.Data.Select(t => (TaskRecord)t);
+    }
+    
+    public async Task<TaskRecord> GetTask(string droneId, string taskId)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Tasks}/{droneId}/{taskId}");
+        var response = await _client.ExecuteAsync<TaskRecordResponse>(request);
+
+        return response.Data;
     }
 
     public async Task DeleteTask(string droneId, string taskId)
@@ -270,7 +262,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/web");
         var response = await _client.ExecuteAsync<IEnumerable<WebLogEventResponse>>(request);
 
-        return _mapper.Map<IEnumerable<WebLogEventResponse>, IEnumerable<WebLogEvent>>(response.Data);
+        return response.Data.Select(e => (WebLogEvent)e);
     }
 
     public async Task<WebLogEvent> GetWebLog(string id)
@@ -278,7 +270,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/web/{id}");
         var response = await _client.ExecuteAsync<WebLogEventResponse>(request);
 
-        return _mapper.Map<WebLogEventResponse, WebLogEvent>(response.Data);
+        return response.Data;
     }
 
     public async Task<IEnumerable<UserAuthEvent>> GetAuthEvents()
@@ -286,7 +278,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/auth");
         var response = await _client.ExecuteAsync<IEnumerable<UserAuthEventResponse>>(request);
 
-        return _mapper.Map<IEnumerable<UserAuthEventResponse>, IEnumerable<UserAuthEvent>>(response.Data);
+        return response.Data.Select(e => (UserAuthEvent)e);
     }
     
     public async Task<UserAuthEvent> GetAuthEvent(string id)
@@ -294,7 +286,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/auth/{id}");
         var response = await _client.ExecuteAsync<UserAuthEventResponse>(request);
 
-        return _mapper.Map<UserAuthEventResponse, UserAuthEvent>(response.Data);
+        return response.Data;
     }
 
     public async Task<IEnumerable<ReversePortForward>> GetReversePortForwards()
@@ -302,7 +294,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}");
         var response = await _client.ExecuteAsync<IEnumerable<ReversePortForwardResponse>>(request);
 
-        return _mapper.Map<IEnumerable<ReversePortForwardResponse>, IEnumerable<ReversePortForward>>(response.Data);
+        return response.Data.Select(f => (ReversePortForward)f);
     }
 
     public async Task<ReversePortForward> GetReversePortForward(string id)
@@ -310,7 +302,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}");
         var response = await _client.ExecuteAsync<ReversePortForwardResponse>(request);
 
-        return _mapper.Map<ReversePortForwardResponse, ReversePortForward>(response.Data);
+        return response.Data;
     }
 
     public async Task CreateReversePortForward(ReversePortForwardRequest fwdRequest)

@@ -1,7 +1,5 @@
 ﻿using System.Reflection;
 
-using AutoMapper;
-
 using Microsoft.AspNetCore.SignalR;
 
 using TeamServer.Drones;
@@ -9,7 +7,6 @@ using TeamServer.Hubs;
 using TeamServer.Interfaces;
 using TeamServer.Messages;
 using TeamServer.Modules;
-using TeamServer.Tasks;
 
 using TaskStatus = TeamServer.Tasks.TaskStatus;
 
@@ -24,11 +21,10 @@ public class ServerService : IServerService
     public IReversePortForwardService PortForwards { get; }
     public IHubContext<NotificationHub, INotificationHub> Hub { get; }
     
-    private readonly IMapper _mapper;
     private readonly List<ServerModule> _modules = new();
 
-    public ServerService(IDroneService drones, IPeerToPeerService peerToPeer, ITaskService tasks, IMapper mapper,
-        ICryptoService crypto, IReversePortForwardService portForwards, IHubContext<NotificationHub, INotificationHub> hub)
+    public ServerService(IDroneService drones, IPeerToPeerService peerToPeer, ITaskService tasks, ICryptoService crypto,
+        IReversePortForwardService portForwards, IHubContext<NotificationHub, INotificationHub> hub)
     {
         Drones = drones;
         PeerToPeer = peerToPeer;
@@ -36,8 +32,6 @@ public class ServerService : IServerService
         Crypto = crypto;
         PortForwards = portForwards;
         Hub = hub;
-
-        _mapper = mapper;
 
         LoadModules();
     }
@@ -79,13 +73,10 @@ public class ServerService : IServerService
                 record.StartTime = DateTime.UtcNow;
 
                 // map it to a task
-                var task = _mapper.Map<TaskRecord, DroneTask>(record);
-
-                // encrypt it
-                var enc = await Crypto.Encrypt(task);
+                var task = (DroneTask)record;
 
                 // pack into a frame
-                outbound.Add(new C2Frame(record.DroneId, FrameType.TASK, enc));
+                outbound.Add(new C2Frame(record.DroneId, FrameType.TASK, await Crypto.Encrypt(task)));
             
                 // tell hub
                 await Hub.Clients.All.TaskUpdated(record.DroneId, record.TaskId);

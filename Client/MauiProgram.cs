@@ -1,6 +1,8 @@
 ﻿using Client.Services;
 using Client.Shared;
+
 using Microsoft.AspNetCore.Components.Authorization;
+
 using MudBlazor.Services;
 
 namespace Client;
@@ -27,8 +29,6 @@ public static class MauiProgram
         builder.Services.AddTransient<CommandService>();
         builder.Services.AddSingleton<SharpC2Api>();
         builder.Services.AddSingleton<SharpC2Hub>();
-
-        builder.Services.AddAutoMapper(typeof(MauiProgram));
 
         return builder.Build();
     }

@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using TeamServer.Handlers;
+﻿using TeamServer.Handlers;
 using TeamServer.Interfaces;
 using TeamServer.Storage;
 
@@ -9,14 +7,12 @@ namespace TeamServer.Services;
 public class HandlerService : IHandlerService
 {
     private readonly IDatabaseService _db;
-    private readonly IMapper _mapper;
 
     private readonly List<Handler> _handlers = new();
 
-    public HandlerService(IDatabaseService db, IMapper mapper)
+    public HandlerService(IDatabaseService db)
     {
         _db = db;
-        _mapper = mapper;
     }
 
     public async Task LoadHandlersFromDb()
@@ -26,58 +22,24 @@ public class HandlerService : IHandlerService
         var http = await conn.Table<HttpHandlerDao>().ToArrayAsync();
         var tcp = await conn.Table<TcpHandlerDao>().ToArrayAsync();
         var smb = await conn.Table<SmbHandlerDao>().ToArrayAsync();
-        var ext = await conn.Table<ExternalHandlerDao>().ToArrayAsync();
+        var ext = await conn.Table<ExtHandlerDao>().ToArrayAsync();
         
         foreach (var dao in http)
         {
-            var handler = new HttpHandler(dao.Secure)
-            {
-                Id = dao.Id,
-                Name = dao.Name,
-                BindPort = dao.BindPort,
-                ConnectAddress = dao.ConnectAddress,
-                ConnectPort = dao.ConnectPort
-            };
-                
+            var handler = (HttpHandler)dao;
             _ = handler.Start();
             _handlers.Add(handler);
         }
 
         foreach (var dao in tcp)
-        {
-            var handler = new TcpHandler
-            {
-                Id = dao.Id,
-                Name = dao.Name,
-                Address = dao.Address,
-                Port = dao.Port,
-                Loopback = dao.Loopback
-            };
-            
-            _handlers.Add(handler);
-        }
+            _handlers.Add((TcpHandler)dao);
 
         foreach (var dao in smb)
-        {
-            var handler = new SmbHandler
-            {
-                Id = dao.Id,
-                Name = dao.Name,
-                PipeName = dao.PipeName
-            };
-            
-            _handlers.Add(handler);
-        }
+            _handlers.Add((SmbHandler)dao);
 
         foreach (var dao in ext)
         {
-            var handler = new ExternalHandler
-            {
-                Id = dao.Id,
-                Name = dao.Name,
-                BindPort = dao.BindPort
-            };
-
+            var handler = (ExtHandler)dao;
             _ = handler.Start();
             _handlers.Add(handler);
         }
@@ -95,33 +57,25 @@ public class HandlerService : IHandlerService
         {
             case HandlerType.HTTP:
             {
-                var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
-                await conn.InsertAsync(httpDao);
-                
+                await conn.InsertAsync((HttpHandlerDao)handler);
                 break;
             }
 
             case HandlerType.SMB:
             {
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.InsertAsync(smbDao);
-                
+                await conn.InsertAsync((SmbHandlerDao)handler);
                 break;
             }
 
             case HandlerType.TCP:
             {
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.InsertAsync(tcpDao);
-                
+                await conn.InsertAsync((TcpHandlerDao)handler);
                 break;
             }
 
             case HandlerType.EXTERNAL:
             {
-                var extDao = _mapper.Map<ExternalHandler, ExternalHandlerDao>((ExternalHandler)handler);
-                await conn.InsertAsync(extDao);
-                
+                await conn.InsertAsync((ExtHandlerDao)handler);
                 break;
             }
             
@@ -150,29 +104,24 @@ public class HandlerService : IHandlerService
         {
             case HandlerType.HTTP:
             {
-                var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
-                await conn.UpdateAsync(httpDao);
-                
+                await conn.UpdateAsync((HttpHandlerDao)handler);
                 break;
             }
 
             case HandlerType.SMB:
             {
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.UpdateAsync(smbDao);
-                
+                await conn.UpdateAsync((SmbHandlerDao)handler);
                 break;
             }
 
             case HandlerType.TCP:
             {
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.UpdateAsync(tcpDao);
-                
+                await conn.UpdateAsync((TcpHandlerDao)handler);
                 break;
             }
             
             case HandlerType.EXTERNAL:
+                await conn.UpdateAsync((ExtHandlerDao)handler);
                 break;
             
             default:
@@ -192,33 +141,25 @@ public class HandlerService : IHandlerService
         {
             case HandlerType.HTTP:
             {
-                var httpDao = _mapper.Map<HttpHandler, HttpHandlerDao>((HttpHandler)handler);
-                await conn.DeleteAsync(httpDao);
-                
+                await conn.DeleteAsync((HttpHandlerDao)handler);
                 break;
             }
 
             case HandlerType.SMB:
             {
-                var smbDao = _mapper.Map<SmbHandler, SmbHandlerDao>((SmbHandler)handler);
-                await conn.DeleteAsync(smbDao);
-                
+                await conn.DeleteAsync((SmbHandlerDao)handler);
                 break;
             }
 
             case HandlerType.TCP:
             {
-                var tcpDao = _mapper.Map<TcpHandler, TcpHandlerDao>((TcpHandler)handler);
-                await conn.DeleteAsync(tcpDao);
-                
+                await conn.DeleteAsync((TcpHandlerDao)handler);
                 break;
             }
 
             case HandlerType.EXTERNAL:
             {
-                var extDao = _mapper.Map<ExternalHandler, ExternalHandlerDao>((ExternalHandler)handler);
-                await conn.DeleteAsync(extDao);
-                
+                await conn.DeleteAsync((ExtHandlerDao)handler);
                 break;
             }
             

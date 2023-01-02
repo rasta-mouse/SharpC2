@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using TeamServer.Drones;
+﻿using TeamServer.Drones;
 using TeamServer.Interfaces;
 using TeamServer.Storage;
 
@@ -9,51 +7,41 @@ namespace TeamServer.Services;
 public class DroneService : IDroneService
 {
     private readonly IDatabaseService _db;
-    private readonly IMapper _mapper;
 
-    public DroneService(IDatabaseService db, IMapper mapper)
+    public DroneService(IDatabaseService db, IPeerToPeerService peerToPeer)
     {
         _db = db;
-        _mapper = mapper;
     }
 
     public async Task Add(Drone drone)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<Drone, DroneDao>(drone);
-        
-        await conn.InsertAsync(dao);
+        await conn.InsertAsync((DroneDao)drone);
     }
 
     public async Task<Drone> Get(string id)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<DroneDao>().FirstOrDefaultAsync(d => d.Id.Equals(id));
-
-        return _mapper.Map<DroneDao, Drone>(dao);
+        return await conn.Table<DroneDao>().FirstOrDefaultAsync(d => d.Id.Equals(id));
     }
 
     public async Task<IEnumerable<Drone>> Get()
     {
         var conn = _db.GetAsyncConnection();
-        var dao = await conn.Table<DroneDao>().ToArrayAsync();
+        var drones = await conn.Table<DroneDao>().ToArrayAsync();
 
-        return _mapper.Map<IEnumerable<DroneDao>, IEnumerable<Drone>>(dao);
+        return drones.Select(d => (Drone)d);
     }
 
     public async Task Update(Drone drone)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<Drone, DroneDao>(drone);
-
-        await conn.UpdateAsync(dao);
+        await conn.UpdateAsync((DroneDao)drone);
     }
 
     public async Task Delete(Drone drone)
     {
         var conn = _db.GetAsyncConnection();
-        var dao = _mapper.Map<Drone, DroneDao>(drone);
-
-        await conn.DeleteAsync(dao);
+        await conn.DeleteAsync((DroneDao)drone);
     }
 }

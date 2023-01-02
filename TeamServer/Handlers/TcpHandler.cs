@@ -1,4 +1,6 @@
-﻿using TeamServer.Utilities;
+﻿using SharpC2.API.Requests;
+using SharpC2.API.Responses;
+using TeamServer.Utilities;
 
 namespace TeamServer.Handlers;
 
@@ -11,18 +13,30 @@ public sealed class TcpHandler : Handler
     public int Port { get; set; }
     public bool Loopback { get; set; }
 
-    public TcpHandler(bool reverse)
+    public static implicit operator TcpHandler(TcpHandlerRequest request)
     {
-        PayloadType = reverse
-            ? PayloadType.REVERSE_TCP
-            : PayloadType.BIND_TCP;
-        
-        Id = Helpers.GenerateShortGuid();
+        return new TcpHandler
+        {
+            Id = Helpers.GenerateShortGuid(),
+            Name = request.Name,
+            Address = request.Address,
+            Port = request.Port,
+            Loopback = request.Loopback,
+            PayloadType = string.IsNullOrWhiteSpace(request.Address) ? PayloadType.BIND_TCP : PayloadType.REVERSE_TCP
+        };
     }
 
-    public TcpHandler()
+    public static implicit operator TcpHandlerResponse(TcpHandler handler)
     {
-        PayloadType = PayloadType.BIND_TCP;
-        Id = Helpers.GenerateShortGuid();
+        return new TcpHandlerResponse
+        {
+            Id = handler.Id,
+            Name = handler.Name,
+            Address = handler.Address,
+            Port = handler.Port,
+            Loopback = handler.Loopback,
+            HandlerType = (int)handler.HandlerType,
+            PayloadType = (int)handler.PayloadType
+        };
     }
 }

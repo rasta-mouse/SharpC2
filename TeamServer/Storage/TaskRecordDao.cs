@@ -1,5 +1,8 @@
 ﻿using SQLite;
 
+using TeamServer.Tasks;
+using TaskStatus = TeamServer.Tasks.TaskStatus;
+
 namespace TeamServer.Storage;
 
 [Table("tasks")]
@@ -43,4 +46,44 @@ public sealed class TaskRecordDao
     
     [Column("result")]
     public byte[] Result { get; set; }
+
+    public static implicit operator TaskRecordDao(TaskRecord record)
+    {
+        return new TaskRecordDao
+        {
+            TaskId = record.TaskId,
+            DroneId = record.DroneId,
+            Nick = record.Nick,
+            Command = record.Command,
+            Alias = record.Alias,
+            Arguments = record.Arguments is null ? string.Empty : string.Join("__,__", record.Arguments),
+            ArtefactPath = record.ArtefactPath,
+            Artefact = record.Artefact,
+            StartTime = record.StartTime,
+            EndTime = record.EndTime,
+            Status = (int)record.Status,
+            ResultType = record.ResultType,
+            Result = record.Result
+        };
+    }
+
+    public static implicit operator TaskRecord(TaskRecordDao dao)
+    {
+        return new TaskRecord
+        {
+            TaskId = dao.TaskId,
+            DroneId = dao.DroneId,
+            Nick = dao.Nick,
+            Command = dao.Command,
+            Alias = dao.Alias,
+            Arguments = dao.Arguments.Split("__,__"),
+            ArtefactPath = dao.ArtefactPath,
+            Artefact = dao.Artefact,
+            StartTime = dao.StartTime,
+            EndTime = dao.EndTime,
+            Status = (TaskStatus)dao.Status,
+            ResultType = dao.ResultType,
+            Result = dao.Result
+        };
+    }
 }

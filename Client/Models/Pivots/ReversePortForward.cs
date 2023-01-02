@@ -1,4 +1,6 @@
-﻿namespace Client.Models.Pivots;
+﻿using SharpC2.API.Responses;
+
+namespace Client.Models.Pivots;
 
 public sealed class ReversePortForward
 {
@@ -9,4 +11,19 @@ public sealed class ReversePortForward
     public int ForwardPort { get; set; }
 
     public string DroneDescription { get; set; }
+
+    public static implicit operator ReversePortForward(ReversePortForwardResponse response)
+    {
+        if (response is null)
+            return null;
+
+        return new ReversePortForward
+        {
+            Id = response.Id,
+            DroneId = response.DroneId,
+            BindPort = response.BindPort,
+            ForwardHost = response.ForwardHost,
+            ForwardPort = response.ForwardPort
+        };
+    }
 }

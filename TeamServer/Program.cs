@@ -101,7 +101,7 @@ internal static class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddControllers(ConfigureControllers);
         builder.Services.AddSignalR();
-
+        
         builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
         builder.Services.AddSingleton<IAuthenticationService>(authService);
         builder.Services.AddSingleton<IHandlerService, HandlerService>();
@@ -116,10 +116,16 @@ internal static class Program
         builder.Services.AddTransient<IHostedFilesService, HostedFileService>();
         builder.Services.AddTransient<IReversePortForwardService, ReversePortForwardService>();
         
-        builder.Services.AddAutoMapper(typeof(Program));
-
         _app = builder.Build();
         
+        // build p2p graph from known drones
+        var droneService = GetService<IDroneService>();
+        var drones = await droneService.Get();
+        
+        var p2pService = GetService<IPeerToPeerService>();
+        p2pService.InitFromDrones(drones);
+
+        // load saved handlers from DB
         await LoadHandlersFromDatabase();
         
         if (_app.Environment.IsDevelopment())

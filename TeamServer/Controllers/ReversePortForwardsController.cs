@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -25,17 +23,15 @@ public class ReversePortForwardsController : ControllerBase
     private readonly IDroneService _drones;
     private readonly ITaskService _tasks;
     private readonly ICryptoService _crypto;
-    private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
     public ReversePortForwardsController(IReversePortForwardService portForwards, IDroneService drones,
-        ITaskService tasks, ICryptoService crypto, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
+        ITaskService tasks, ICryptoService crypto, IHubContext<NotificationHub, INotificationHub> hub)
     {
         _portForwards = portForwards;
         _drones = drones;
         _tasks = tasks;
         _crypto = crypto;
-        _mapper = mapper;
         _hub = hub;
     }
 
@@ -49,7 +45,7 @@ public class ReversePortForwardsController : ControllerBase
         else
             forwards = await _portForwards.GetAll(droneId);
 
-        var response = _mapper.Map<IEnumerable<ReversePortForward>, IEnumerable<ReversePortForwardResponse>>(forwards);
+        var response = forwards.Select(f => (ReversePortForwardResponse)f);
         return Ok(response);
     }
 
@@ -61,8 +57,7 @@ public class ReversePortForwardsController : ControllerBase
         if (forward is null)
             return NotFound();
         
-        var response = _mapper.Map<ReversePortForward, ReversePortForwardResponse>(forward);
-        return Ok(response);
+        return Ok((ReversePortForwardResponse)forward);
     }
 
     [HttpPost]
@@ -85,13 +80,7 @@ public class ReversePortForwardsController : ControllerBase
             return BadRequest("BindPort already in use");
 
         // create new forward
-        var forward = new ReversePortForward
-        {
-            DroneId = request.DroneId,
-            BindPort = request.BindPort,
-            ForwardHost = request.ForwardHost,
-            ForwardPort = request.ForwardPort
-        };
+        var forward = (ReversePortForward)request;
 
         await _portForwards.Add(forward);
         await _hub.Clients.All.ReversePortForwardCreated(forward.Id);
@@ -100,8 +89,7 @@ public class ReversePortForwardsController : ControllerBase
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.START, BitConverter.GetBytes(forward.BindPort));
         _tasks.CacheFrame(forward.DroneId, new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet)));
         
-        var response = _mapper.Map<ReversePortForward, ReversePortForwardResponse>(forward);
-        return Ok(response);
+        return Ok((ReversePortForwardResponse)forward);
     }
 
     [HttpDelete("{forwardId}")]

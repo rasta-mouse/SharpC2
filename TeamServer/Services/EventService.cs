@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using TeamServer.Events;
+﻿using TeamServer.Events;
 using TeamServer.Interfaces;
 using TeamServer.Storage;
 
@@ -9,12 +7,10 @@ namespace TeamServer.Services;
 public sealed class EventService : IEventService
 {
     private readonly IDatabaseService _db;
-    private readonly IMapper _mapper;
 
-    public EventService(IDatabaseService db, IMapper mapper)
+    public EventService(IDatabaseService db)
     {
         _db = db;
-        _mapper = mapper;
     }
 
     public async Task Add(SharpC2Event ev)
@@ -25,17 +21,13 @@ public sealed class EventService : IEventService
         {
             case EventType.USER_AUTH:
             {
-                var dao = _mapper.Map<UserAuthEvent, UserAuthDao>((UserAuthEvent)ev);
-                await conn.InsertAsync(dao);
-
+                await conn.InsertAsync((UserAuthDao)ev);
                 break;
             }
 
             case EventType.WEB_LOG:
             {
-                var dao = _mapper.Map<WebLogEvent, WebLogDao>((WebLogEvent)ev);
-                await conn.InsertAsync(dao);
-
+                await conn.InsertAsync((WebLogDao)ev);
                 break;
             }
 
@@ -44,41 +36,31 @@ public sealed class EventService : IEventService
         }
     }
 
-    public async Task<IEnumerable<T>> Get<T>() where T : SharpC2Event
+    public async Task<IEnumerable<UserAuthEvent>> GetAuthEvents()
     {
         var conn = _db.GetAsyncConnection();
-
-        if (typeof(T) == typeof(UserAuthEvent))
-        {
-            var dao = await conn.Table<UserAuthDao>().ToArrayAsync();
-            return _mapper.Map<IEnumerable<UserAuthDao>, IEnumerable<UserAuthEvent>>(dao).Cast<T>();
-        }
-
-        if (typeof(T) == typeof(WebLogEvent))
-        {
-            var dao = await conn.Table<WebLogDao>().ToArrayAsync();
-            return _mapper.Map<IEnumerable<WebLogDao>, IEnumerable<WebLogEvent>>(dao).Cast<T>();
-        }
-
-        throw new ArgumentException("Unknown SharpC2Event type");
+        var events = await conn.Table<UserAuthDao>().ToArrayAsync();
+        
+        return events.Select(e => (UserAuthEvent)e);
     }
 
-    public async Task<T> Get<T>(string id) where T : SharpC2Event
+    public async Task<UserAuthEvent> GetAuthEvent(string id)
     {
         var conn = _db.GetAsyncConnection();
+        return await conn.Table<UserAuthDao>().FirstOrDefaultAsync(e => e.Id.Equals(id));
+    }
 
-        if (typeof(T) == typeof(UserAuthEvent))
-        {
-            var dao = await conn.Table<UserAuthDao>().FirstOrDefaultAsync(e => e.Id.Equals(id));
-            return _mapper.Map<UserAuthDao, UserAuthEvent>(dao) as T;
-        }
-
-        if (typeof(T) == typeof(WebLogEvent))
-        {
-            var dao = await conn.Table<WebLogDao>().FirstOrDefaultAsync(e => e.Id.Equals(id));
-            return _mapper.Map<WebLogDao, WebLogEvent>(dao) as T;
-        }
+    public async Task<IEnumerable<WebLogEvent>> GetWebLogEvents()
+    {
+        var conn = _db.GetAsyncConnection();
+        var events = await conn.Table<WebLogDao>().ToArrayAsync();
         
-        throw new ArgumentException("Unknown SharpC2Event type");
+        return events.Select(e => (WebLogEvent)e);
+    }
+
+    public async Task<WebLogEvent> GetWebLogEvent(string id)
+    {
+        var conn = _db.GetAsyncConnection();
+        return await conn.Table<WebLogDao>().FirstOrDefaultAsync(e => e.Id.Equals(id));
     }
 }

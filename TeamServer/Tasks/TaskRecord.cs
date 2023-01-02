@@ -1,4 +1,8 @@
-﻿using TeamServer.Messages;
+﻿using SharpC2.API.Requests;
+using SharpC2.API.Responses;
+
+using TeamServer.Messages;
+using TeamServer.Utilities;
 
 namespace TeamServer.Tasks;
 
@@ -41,6 +45,41 @@ public sealed class TaskRecord
         
         if (Status is TaskStatus.COMPLETE or TaskStatus.ABORTED)
             EndTime = DateTime.UtcNow;
+    }
+
+    public static implicit operator TaskRecord(TaskRequest request)
+    {
+        return new TaskRecord
+        {
+            TaskId = Helpers.GenerateShortGuid(),
+            Command = request.Command,
+            Alias = request.Alias,
+            Arguments = request.Arguments,
+            ArtefactPath = request.ArtefactPath,
+            Artefact = request.Artefact,
+            Status = TaskStatus.PENDING,
+            ResultType = request.ResultType
+        };
+    }
+
+    public static implicit operator TaskRecordResponse(TaskRecord record)
+    {
+        return new TaskRecordResponse
+        {
+            TaskId = record.TaskId,
+            DroneId = record.DroneId,
+            Nick = record.Nick,
+            Command = record.Command,
+            Alias = record.Alias,
+            Arguments = record.Arguments,
+            ArtefactPath = record.ArtefactPath,
+            //Artefact = record.Artefact,
+            StartTime = record.StartTime,
+            EndTime = record.EndTime,
+            Status = (int)record.Status,
+            ResultType = record.ResultType,
+            Result = record.Result
+        };
     }
 }
 

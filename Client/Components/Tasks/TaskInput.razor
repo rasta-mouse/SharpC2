@@ -147,14 +147,22 @@
             {
                 case ArgumentType.ARTEFACT:
                 {
-                    using var ms = new MemoryStream();
-                    await using var fs = _artefact.OpenReadStream(5120000); // 5MB
+                    if (_artefact is null)
+                    {
+                        if (!argument.Optional)
+                            return;
+                    }
+                    else
+                    {
+                        using var ms = new MemoryStream();
+                        await using var fs = _artefact.OpenReadStream(5120000); // 5MB
 
-                    await fs.CopyToAsync(ms);
+                        await fs.CopyToAsync(ms);
 
-                    _taskRequest.ArtefactPath = _artefact.Name;
-                    _taskRequest.Artefact = ms.ToArray();
-                    
+                        _taskRequest.ArtefactPath = _artefact.Name;
+                        _taskRequest.Artefact = ms.ToArray();
+                    }
+
                     break;
                 }
 

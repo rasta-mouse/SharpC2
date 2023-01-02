@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -11,7 +9,6 @@ using SharpC2.API.Responses;
 using TeamServer.Handlers;
 using TeamServer.Hubs;
 using TeamServer.Interfaces;
-using TeamServer.Utilities;
 
 namespace TeamServer.Controllers;
 
@@ -21,13 +18,11 @@ namespace TeamServer.Controllers;
 public class HandlersController : ControllerBase
 {
     private readonly IHandlerService _handlers;
-    private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
-    public HandlersController(IHandlerService handlers, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
+    public HandlersController(IHandlerService handlers, IHubContext<NotificationHub, INotificationHub> hub)
     {
         _handlers = handlers;
-        _mapper = mapper;
         _hub = hub;
     }
     
@@ -35,7 +30,7 @@ public class HandlersController : ControllerBase
     public ActionResult<IEnumerable<HttpHandlerResponse>> GetHttpHandlers()
     {
         var handlers = _handlers.Get<HttpHandler>();
-        var response = _mapper.Map<IEnumerable<HttpHandler>, IEnumerable<HttpHandlerResponse>>(handlers);
+        var response = handlers.Select(h => (HttpHandlerResponse)h);
 
         return Ok(response);
     }
@@ -44,7 +39,7 @@ public class HandlersController : ControllerBase
     public ActionResult<IEnumerable<TcpHandlerResponse>> GetTcpHandlers()
     {
         var handlers = _handlers.Get<TcpHandler>();
-        var response = _mapper.Map<IEnumerable<TcpHandler>, IEnumerable<TcpHandlerResponse>>(handlers);
+        var response = handlers.Select(h => (TcpHandlerResponse)h);
 
         return Ok(response);
     }
@@ -53,16 +48,16 @@ public class HandlersController : ControllerBase
     public ActionResult<IEnumerable<SmbHandlerResponse>> GetSmbHandlers()
     {
         var handlers = _handlers.Get<SmbHandler>();
-        var response = _mapper.Map<IEnumerable<SmbHandler>, IEnumerable<SmbHandlerResponse>>(handlers);
+        var response = handlers.Select(h => (SmbHandlerResponse)h);
 
         return Ok(response);
     }
     
     [HttpGet("ext")]
-    public ActionResult<IEnumerable<ExternalHandlerResponse>> GetExternalHandlers()
+    public ActionResult<IEnumerable<ExtHandlerResponse>> GetExternalHandlers()
     {
-        var handlers = _handlers.Get<ExternalHandler>();
-        var response = _mapper.Map<IEnumerable<ExternalHandler>, IEnumerable<ExternalHandlerResponse>>(handlers);
+        var handlers = _handlers.Get<ExtHandler>();
+        var response = handlers.Select(h => (ExtHandlerResponse)h);
 
         return Ok(response);
     }
@@ -75,8 +70,7 @@ public class HandlersController : ControllerBase
         if (handler is null)
             return NotFound();
         
-        var response = _mapper.Map<HttpHandler, HttpHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((HttpHandlerResponse)handler);
     }
     
     [HttpGet("tcp/{name}")]
@@ -87,8 +81,7 @@ public class HandlersController : ControllerBase
         if (handler is null)
             return NotFound();
         
-        var response = _mapper.Map<TcpHandler, TcpHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((TcpHandlerResponse)handler);
     }
     
     [HttpGet("smb/{name}")]
@@ -99,93 +92,64 @@ public class HandlersController : ControllerBase
         if (handler is null)
             return NotFound();
         
-        var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((SmbHandlerResponse)handler);
     }
     
     [HttpGet("ext/{name}")]
-    public ActionResult<IEnumerable<ExternalHandlerResponse>> GetExternalHandler(string name)
+    public ActionResult<IEnumerable<ExtHandlerResponse>> GetExternalHandler(string name)
     {
-        var handler = _handlers.Get<ExternalHandler>(name);
+        var handler = _handlers.Get<ExtHandler>(name);
 
         if (handler is null)
             return NotFound();
         
-        var response = _mapper.Map<ExternalHandler, ExternalHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((ExtHandlerResponse)handler);
     }
     
     [HttpPost("http")]
     public async Task<ActionResult<HttpHandlerResponse>> CreateHttpHandler([FromBody] HttpHandlerRequest request)
     {
-        var handler = new HttpHandler(request.Secure)
-        {
-            Name = request.Name,
-            BindPort = request.BindPort,
-            ConnectAddress = request.ConnectAddress,
-            ConnectPort = request.ConnectPort
-        };
-        
+        var handler = (HttpHandler)request;
         _ = handler.Start();
         
         await _handlers.Add(handler);
         await _hub.Clients.All.HttpHandlerCreated(handler.Name);
 
-        var response = _mapper.Map<HttpHandler, HttpHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((HttpHandlerResponse)handler);
     }
     
     [HttpPost("tcp")]
     public async Task<ActionResult<TcpHandlerResponse>> CreateTcpHandler([FromBody] TcpHandlerRequest request)
     {
-        var handler = new TcpHandler
-        {
-            Name = request.Name,
-            Address = request.Address,
-            Port = request.Port,
-            Loopback = request.Loopback
-        };
+        var handler = (TcpHandler)request;
 
         await _handlers.Add(handler);
         await _hub.Clients.All.TcpHandlerCreated(handler.Name);
 
-        var response = _mapper.Map<TcpHandler, TcpHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((TcpHandlerResponse)handler);
     }
     
     [HttpPost("smb")]
-    public async Task<ActionResult<TcpHandlerResponse>> CreateSmbHandler([FromBody] SmbHandlerRequest request)
+    public async Task<ActionResult<SmbHandlerResponse>> CreateSmbHandler([FromBody] SmbHandlerRequest request)
     {
-        var handler = new SmbHandler
-        {
-            Name = request.Name,
-            PipeName = request.PipeName
-        };
+        var handler = (SmbHandler)request;
 
         await _handlers.Add(handler);
         await _hub.Clients.All.SmbHandlerCreated(handler.Name);
 
-        var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((SmbHandlerResponse)handler);
     }
     
     [HttpPost("ext")]
-    public async Task<ActionResult<ExternalHandlerResponse>> CreateExternalHandler([FromBody] ExternalHandlerRequest request)
+    public async Task<ActionResult<ExtHandlerResponse>> CreateExternalHandler([FromBody] ExtHandlerRequest request)
     {
-        var handler = new ExternalHandler
-        {
-            Id = Helpers.GenerateShortGuid(),
-            Name = request.Name,
-            BindPort = request.BindPort
-        };
-
+        var handler = (ExtHandler)request;
         _ = handler.Start();
         
         await _handlers.Add(handler);
         await _hub.Clients.All.ExternalHandlerCreated(handler.Name);
 
-        var response = _mapper.Map<ExternalHandler, ExternalHandlerResponse>(handler);
-        return Ok(response);
+        return Ok((ExtHandlerResponse)handler);
     }
 
     [HttpDelete("{name}")]

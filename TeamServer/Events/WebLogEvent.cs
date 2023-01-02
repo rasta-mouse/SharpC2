@@ -1,4 +1,6 @@
-﻿namespace TeamServer.Events;
+﻿using SharpC2.API.Responses;
+
+namespace TeamServer.Events;
 
 public sealed class WebLogEvent : SharpC2Event
 {
@@ -10,4 +12,18 @@ public sealed class WebLogEvent : SharpC2Event
     public string UserAgent { get; set; }
     public string SourceAddress { get; set; }
     public int ResponseCode { get; set; }
+
+    public static implicit operator WebLogEventResponse(WebLogEvent ev)
+    {
+        return new WebLogEventResponse
+        {
+            Id = ev.Id,
+            Date = ev.Date,
+            Method = ev.Method,
+            Uri = ev.Uri,
+            UserAgent = ev.UserAgent,
+            SourceAddress = ev.SourceAddress,
+            ResponseCode = ev.ResponseCode
+        };
+    }
 }

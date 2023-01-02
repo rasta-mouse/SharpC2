@@ -43,7 +43,7 @@
                 if (parent is not null)
                 {
                     <MudTooltip Text="@($"{parent.Metadata.Hostname} @ {parent.Metadata.Pid} ({parent.Metadata.Process})")">
-                        @if (context.Status == Drone.DroneStatus.ALIVE)
+                        @if (context.Status == DroneStatus.ALIVE)
                         {
                             <MudIconButton Icon="@Icons.Filled.Link" Disabled="@true"/>
                         }
@@ -128,7 +128,7 @@
         }
         else
         {
-            drone.Status = Drone.DroneStatus.DEAD;
+            drone.Status = DroneStatus.DEAD;
         }
     }
 
@@ -164,7 +164,7 @@
         if (drone is null)
             return;
 
-        drone.Status = Drone.DroneStatus.LOST;
+        drone.Status = DroneStatus.LOST;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -172,9 +172,9 @@
     {
         return drone.Status switch
         {
-            Drone.DroneStatus.ALIVE => Color.Success,
-            Drone.DroneStatus.LOST => Color.Warning,
-            Drone.DroneStatus.DEAD => Color.Error,
+            DroneStatus.ALIVE => Color.Success,
+            DroneStatus.LOST => Color.Warning,
+            DroneStatus.DEAD => Color.Error,
             
             _ => throw new ArgumentOutOfRangeException()
             };

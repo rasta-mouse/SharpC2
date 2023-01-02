@@ -1,7 +1,11 @@
-﻿namespace TeamServer.Interfaces;
+﻿using TeamServer.Drones;
+
+namespace TeamServer.Interfaces;
 
 public interface IPeerToPeerService
 {
+    void InitFromDrones(IEnumerable<Drone> drones);
+    
     void AddVertex(string vertex);
     void RemoveVertex(string vertex);
     

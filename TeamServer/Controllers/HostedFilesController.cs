@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -21,14 +19,12 @@ public class HostedFilesController : ControllerBase
 {
     private readonly IHandlerService _handlers;
     private readonly IHostedFilesService _hostedFiles;
-    private readonly IMapper _mapper;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
 
-    public HostedFilesController(IHandlerService handlers, IHostedFilesService hostedFiles, IMapper mapper, IHubContext<NotificationHub, INotificationHub> hub)
+    public HostedFilesController(IHandlerService handlers, IHostedFilesService hostedFiles, IHubContext<NotificationHub, INotificationHub> hub)
     {
         _handlers = handlers;
         _hostedFiles = hostedFiles;
-        _mapper = mapper;
         _hub = hub;
     }
 
@@ -36,21 +32,20 @@ public class HostedFilesController : ControllerBase
     public async Task<ActionResult<IEnumerable<HostedFileResponse>>> GetHostedFiles()
     {
         var files = await _hostedFiles.Get();
-        var response = _mapper.Map<IEnumerable<HostedFile>, IEnumerable<HostedFileResponse>>(files);
+        var response = files.Select(f => (HostedFileResponse)f);
 
         return Ok(response);
     }
     
     [HttpGet("{id}")]
-    public async Task<ActionResult<HostedFileResponse>> GetHostedFiles(string id)
+    public async Task<ActionResult<HostedFileResponse>> GetHostedFile(string id)
     {
         var file = await _hostedFiles.Get(id);
 
         if (file is null)
             return NotFound();
         
-        var response = _mapper.Map<HostedFile, HostedFileResponse>(file);
-        return Ok(response);
+        return Ok((HostedFileResponse)file);
     }
 
     [HttpPost]
@@ -65,13 +60,7 @@ public class HostedFilesController : ControllerBase
         var fullPath = Path.Combine(handler.FilePath, fileName);
         await System.IO.File.WriteAllBytesAsync(fullPath, request.Bytes);
 
-        var hostedFile = new HostedFile
-        {
-            Uri = request.Uri,
-            Handler = request.Handler,
-            Filename = request.Filename,
-            Size = request.Bytes.LongLength
-        };
+        var hostedFile = (HostedFile)request;
 
         await _hostedFiles.Add(hostedFile);
         await _hub.Clients.All.HostedFileAdded(hostedFile.Id);

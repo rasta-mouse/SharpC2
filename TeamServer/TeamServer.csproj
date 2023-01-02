@@ -8,8 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="AutoMapper" Version="12.0.0" />
-      <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.0" />
       <PackageReference Include="dnlib" Version="3.6.0" />
       <PackageReference Include="DonutCore" Version="1.0.0" />
       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="7.0.1" />

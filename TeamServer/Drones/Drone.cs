@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 
+using SharpC2.API.Responses;
+
 namespace TeamServer.Drones;
 
 [DebuggerDisplay("{Metadata.Id}")]
@@ -19,12 +21,24 @@ public sealed class Drone
 
     public Drone()
     {
-        // automapper
+        
     }
 
     public void CheckIn()
     {
         LastSeen = DateTime.UtcNow;
+    }
+
+    public static implicit operator DroneResponse(Drone drone)
+    {
+        return new DroneResponse
+        {
+            Metadata = drone.Metadata,
+            FirstSeen = drone.FirstSeen,
+            LastSeen = drone.LastSeen,
+            Parent = drone.Parent,
+            Status = (int)drone.Status
+        };
     }
 }
 
