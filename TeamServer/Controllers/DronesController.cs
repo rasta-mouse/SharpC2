@@ -59,6 +59,10 @@ public class DronesController : ControllerBase
         // remove vertex
         _peerToPeer.RemoveVertex(drone.Metadata.Id);
         
+        // remove edge
+        if (!string.IsNullOrWhiteSpace(drone.Parent))
+            _peerToPeer.RemoveEdge(drone.Parent, drone.Metadata.Id);
+        
         await _drones.Delete(drone);
         await _hub.Clients.All.DroneDeleted(drone.Metadata.Id);
         

@@ -2,6 +2,7 @@
 
 @inherits LayoutComponentBase
 
+@inject SharpC2Api Api
 @inject SharpC2Hub Hub
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -43,6 +44,8 @@
     protected override void OnInitialized()
     {
         Hub.NewEvent += OnNewEvent;
+        Hub.NewDrone += OnNewDrone;
+        
         Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomCenter;
     }
     
@@ -59,6 +62,16 @@
     {
         Snackbar.Add($"New Event: {(EventType)type}", Severity.Info, Configure);
         return Task.CompletedTask;
+    }
+    
+    private async Task OnNewDrone(string id)
+    {
+        var drone = await Api.GetDrone(id);
+        
+        if (drone is null)
+            return;
+        
+        Snackbar.Add($"New Drone: {drone.Metadata.Identity} @ {drone.Metadata.Hostname} ({drone.Metadata.Process}:{drone.Metadata.Pid})", Severity.Info);
     }
 
     private void Configure(SnackbarOptions opts)
