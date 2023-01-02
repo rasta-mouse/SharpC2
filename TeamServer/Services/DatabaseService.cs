@@ -20,6 +20,7 @@ public class DatabaseService : IDatabaseService
             conn.CreateTable<HttpHandlerDao>();
             conn.CreateTable<SmbHandlerDao>();
             conn.CreateTable<TcpHandlerDao>();
+            conn.CreateTable<ExternalHandlerDao>();
             conn.CreateTable<WebLogDao>();
             conn.CreateTable<HostedFileDao>();
             conn.CreateTable<CryptoDao>();

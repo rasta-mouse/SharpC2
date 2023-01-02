@@ -26,6 +26,7 @@ public class HandlerService : IHandlerService
         var http = await conn.Table<HttpHandlerDao>().ToArrayAsync();
         var tcp = await conn.Table<TcpHandlerDao>().ToArrayAsync();
         var smb = await conn.Table<SmbHandlerDao>().ToArrayAsync();
+        var ext = await conn.Table<ExternalHandlerDao>().ToArrayAsync();
         
         foreach (var dao in http)
         {
@@ -67,6 +68,19 @@ public class HandlerService : IHandlerService
             
             _handlers.Add(handler);
         }
+
+        foreach (var dao in ext)
+        {
+            var handler = new ExternalHandler
+            {
+                Id = dao.Id,
+                Name = dao.Name,
+                BindPort = dao.BindPort
+            };
+
+            _ = handler.Start();
+            _handlers.Add(handler);
+        }
     }
 
     public async Task Add(Handler handler)
@@ -102,9 +116,14 @@ public class HandlerService : IHandlerService
                 
                 break;
             }
-            
+
             case HandlerType.EXTERNAL:
+            {
+                var extDao = _mapper.Map<ExternalHandler, ExternalHandlerDao>((ExternalHandler)handler);
+                await conn.InsertAsync(extDao);
+                
                 break;
+            }
             
             default:
                 throw new ArgumentOutOfRangeException();
@@ -194,9 +213,14 @@ public class HandlerService : IHandlerService
                 
                 break;
             }
-            
+
             case HandlerType.EXTERNAL:
+            {
+                var extDao = _mapper.Map<ExternalHandler, ExternalHandlerDao>((ExternalHandler)handler);
+                await conn.DeleteAsync(extDao);
+                
                 break;
+            }
             
             default:
                 throw new ArgumentOutOfRangeException();

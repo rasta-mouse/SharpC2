@@ -17,6 +17,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExeStager", "Stagers\ExeSta
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvcStager", "Stagers\SvcStager\SvcStager.csproj", "{87904247-C363-4F12-A13A-3DA484913F9E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ExternalC2", "ExternalC2", "{FA1B632E-884C-4EE7-A604-7A1C027086C0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleController", "ExternalC2\ExampleController\ExampleController.csproj", "{2B048183-4668-47E6-8658-DF0451A9667C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,6 +53,10 @@ Global
 		{87904247-C363-4F12-A13A-3DA484913F9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{87904247-C363-4F12-A13A-3DA484913F9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{87904247-C363-4F12-A13A-3DA484913F9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B048183-4668-47E6-8658-DF0451A9667C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B048183-4668-47E6-8658-DF0451A9667C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B048183-4668-47E6-8658-DF0451A9667C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B048183-4668-47E6-8658-DF0451A9667C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -56,6 +64,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{629EE895-34A1-4B08-B031-1BC0FB01BBC0} = {4AB1F827-C520-42ED-8F0F-55AA159EE75F}
 		{87904247-C363-4F12-A13A-3DA484913F9E} = {4AB1F827-C520-42ED-8F0F-55AA159EE75F}
+		{2B048183-4668-47E6-8658-DF0451A9667C} = {FA1B632E-884C-4EE7-A604-7A1C027086C0}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E3043F1A-6828-4B83-91D0-B0634138A7EF}

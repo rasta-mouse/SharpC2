@@ -1,42 +1,34 @@
-﻿using System.Net.Sockets;
-using System.Security.Claims;
+﻿using System.IO.Pipes;
+using System.Net.Sockets;
 
-using ProtoBuf;
-
-namespace TeamServer.Utilities;
+namespace ExampleController;
 
 public static class Extensions
 {
-    public static byte[] Serialize<T>(this T item)
+    public static bool DataAvailable(this PipeStream pipe)
     {
-        using var ms = new MemoryStream();
-        Serializer.Serialize(ms, item);
-        return ms.ToArray();
+        var hPipe = pipe.SafePipeHandle.DangerousGetHandle();
+        
+        uint available = 0;
+        
+        _ = Win32.PeekNamedPipe(
+            hPipe,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            ref available,
+            IntPtr.Zero);
+
+        return available > 0;
     }
 
-    public static T Deserialize<T>(this byte[] data)
+    public static bool DataAvailable(this NetworkStream stream)
     {
-        using var ms = new MemoryStream(data);
-        return Serializer.Deserialize<T>(ms);
-    }
-
-    public static string GetClaimFromContext(this HttpContext context)
-    {
-        return context.User.Identity is not ClaimsIdentity identity
-            ? string.Empty
-            : identity.Name;
-    }
-    
-    public static bool DataAvailable(this TcpClient client)
-    {
-        var stream = client.GetStream();
         return stream.DataAvailable;
     }
     
-    public static async Task<byte[]> ReadClient(this TcpClient client)
+    public static async Task<byte[]> ReadStream(this Stream stream)
     {
-        var stream = client.GetStream();
-        
         // read length
         var lengthBuf = new byte[4];
         var read = await stream.ReadAsync(lengthBuf, 0, 4);
@@ -63,7 +55,7 @@ public static class Extensions
         return ms.ToArray();
     }
     
-    public static async Task WriteClient(this TcpClient client, byte[] data)
+    public static async Task WriteStream(this Stream stream, byte[] data)
     {
         // format data as [length][value]
         var lengthBuf = BitConverter.GetBytes(data.Length);
@@ -73,7 +65,6 @@ public static class Extensions
         Buffer.BlockCopy(data, 0, lv, lengthBuf.Length, data.Length);
         
         using var ms = new MemoryStream(lv);
-        var stream = client.GetStream();
         
         // write in chunks
         var bytesRemaining = lv.Length;
@@ -92,27 +83,5 @@ public static class Extensions
             bytesRemaining -= lengthToSend;
         }
         while (bytesRemaining > 0);
-    }
-
-    public static async Task<byte[]> ReadStream(this Stream stream)
-    {
-        const int bufSize = 1024;
-        int read;
-
-        using var ms = new MemoryStream();
-
-        do
-        {
-            var buf = new byte[bufSize];
-            read = await stream.ReadAsync(buf, 0, bufSize);
-
-            if (read == 0)
-                break;
-
-            await ms.WriteAsync(buf, 0, read);
-
-        } while (read >= bufSize);
-
-        return ms.ToArray();
     }
 }

@@ -146,6 +146,30 @@ public class SharpC2Api
 
         await _client.ExecuteAsync(request);
     }
+    
+    public async Task<IEnumerable<ExtHandler>> GetExtHandlers()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext");
+        var response = await _client.ExecuteAsync<IEnumerable<ExternalHandlerResponse>>(request);
+
+        return _mapper.Map<IEnumerable<ExternalHandlerResponse>, IEnumerable<ExtHandler>>(response.Data);
+    }
+    
+    public async Task<ExtHandler> GetExtHandler(string name)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext/{name}");
+        var response = await _client.ExecuteAsync<ExternalHandlerResponse>(request);
+
+        return _mapper.Map<ExternalHandlerResponse, ExtHandler>(response.Data);
+    }
+    
+    public async Task CreateExtHandler(ExternalHandlerRequest handlerRequest)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext", Method.Post);
+        request.AddParameter("application/json", JsonSerializer.Serialize(handlerRequest), ParameterType.RequestBody);
+
+        await _client.ExecuteAsync(request);
+    }
 
     public async Task HostFile(HostedFileRequest fileRequest)
     {

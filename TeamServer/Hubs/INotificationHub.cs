@@ -15,6 +15,9 @@ public interface INotificationHub
     Task SmbHandlerCreated(string name);
     Task SmbHandlerDeleted(string name);
 
+    Task ExternalHandlerCreated(string name);
+    Task ExternalHandlerDeleted(string name);
+
     #endregion
 
     #region HostedFiles

@@ -11,6 +11,7 @@ public class HandlerMaps : Profile
         CreateMap<HttpHandlerResponse, HttpHandler>().IncludeAllDerived();
         CreateMap<SmbHandlerResponse, SmbHandler>().IncludeAllDerived();
         CreateMap<TcpHandlerResponse, TcpHandler>().IncludeAllDerived();
+        CreateMap<ExternalHandlerResponse, ExtHandler>().IncludeAllDerived();
         CreateMap<HostedFileResponse, HostedFile>();
     }
 }

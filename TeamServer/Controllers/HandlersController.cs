@@ -11,6 +11,7 @@ using SharpC2.API.Responses;
 using TeamServer.Handlers;
 using TeamServer.Hubs;
 using TeamServer.Interfaces;
+using TeamServer.Utilities;
 
 namespace TeamServer.Controllers;
 
@@ -57,6 +58,15 @@ public class HandlersController : ControllerBase
         return Ok(response);
     }
     
+    [HttpGet("ext")]
+    public ActionResult<IEnumerable<ExternalHandlerResponse>> GetExternalHandlers()
+    {
+        var handlers = _handlers.Get<ExternalHandler>();
+        var response = _mapper.Map<IEnumerable<ExternalHandler>, IEnumerable<ExternalHandlerResponse>>(handlers);
+
+        return Ok(response);
+    }
+    
     [HttpGet("http/{name}")]
     public ActionResult<IEnumerable<HttpHandlerResponse>> GetHttpHandler(string name)
     {
@@ -90,6 +100,18 @@ public class HandlersController : ControllerBase
             return NotFound();
         
         var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
+        return Ok(response);
+    }
+    
+    [HttpGet("ext/{name}")]
+    public ActionResult<IEnumerable<ExternalHandlerResponse>> GetExternalHandler(string name)
+    {
+        var handler = _handlers.Get<ExternalHandler>(name);
+
+        if (handler is null)
+            return NotFound();
+        
+        var response = _mapper.Map<ExternalHandler, ExternalHandlerResponse>(handler);
         return Ok(response);
     }
     
@@ -146,6 +168,25 @@ public class HandlersController : ControllerBase
         var response = _mapper.Map<SmbHandler, SmbHandlerResponse>(handler);
         return Ok(response);
     }
+    
+    [HttpPost("ext")]
+    public async Task<ActionResult<ExternalHandlerResponse>> CreateExternalHandler([FromBody] ExternalHandlerRequest request)
+    {
+        var handler = new ExternalHandler
+        {
+            Id = Helpers.GenerateShortGuid(),
+            Name = request.Name,
+            BindPort = request.BindPort
+        };
+
+        _ = handler.Start();
+        
+        await _handlers.Add(handler);
+        await _hub.Clients.All.ExternalHandlerCreated(handler.Name);
+
+        var response = _mapper.Map<ExternalHandler, ExternalHandlerResponse>(handler);
+        return Ok(response);
+    }
 
     [HttpDelete("{name}")]
     public async Task<IActionResult> DeleteHandler(string name)
@@ -173,6 +214,7 @@ public class HandlersController : ControllerBase
                 break;
             
             case HandlerType.EXTERNAL:
+                await _hub.Clients.All.ExternalHandlerDeleted(handler.Name);
                 break;
             
             default:

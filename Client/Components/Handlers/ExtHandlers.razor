@@ -1,0 +1,84 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+
+@implements IDisposable
+
+@using Client.Models.Handlers
+
+<MudTable Items="@_handlers" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Bind Port</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="BindPort">@context.BindPort</MudTd>
+        <MudTd>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteHandler(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+<MudTooltip Text="Add Handler">
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Class="mt-4"
+            OnClick="OpenCreateHandler"/>
+</MudTooltip>
+
+@code {
+    
+    private bool _loading = true;
+    private List<ExtHandler> _handlers = new();
+    
+    protected override void OnInitialized()
+    {
+        Hub.ExternalHandlerCreated += OnExtHandlerCreated;
+        Hub.ExternalHandlerDeleted += OnExtHandlerDeleted;
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var handlers = await Api.GetExtHandlers();
+
+        _handlers.AddRange(handlers);
+        _loading = false;
+    }
+    
+    private async Task OnExtHandlerCreated(string name)
+    {
+        var handler = await Api.GetExtHandler(name);
+
+        if (handler is null)
+            return;
+
+        _handlers.Add(handler);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task DeleteHandler(Handler handler)
+    {
+        await Api.DeleteHandler(handler);
+    }
+    
+    private async Task OnExtHandlerDeleted(string name)
+    {
+        _handlers.RemoveAll(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OpenCreateHandler()
+    {
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<CreateExtHandler>("", options);
+    }
+    
+    public void Dispose()
+    {
+        Hub.ExternalHandlerCreated -= OnExtHandlerCreated;
+        Hub.ExternalHandlerDeleted -= OnExtHandlerDeleted;
+    }
+}
