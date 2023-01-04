@@ -19,18 +19,20 @@ public class ServerService : IServerService
     public ITaskService Tasks { get; }
     public ICryptoService Crypto { get; }
     public IReversePortForwardService PortForwards { get; }
+    public ISocksService SocksService { get; }
     public IHubContext<NotificationHub, INotificationHub> Hub { get; }
     
     private readonly List<ServerModule> _modules = new();
 
     public ServerService(IDroneService drones, IPeerToPeerService peerToPeer, ITaskService tasks, ICryptoService crypto,
-        IReversePortForwardService portForwards, IHubContext<NotificationHub, INotificationHub> hub)
+        IReversePortForwardService portForwards, ISocksService socksService, IHubContext<NotificationHub, INotificationHub> hub)
     {
         Drones = drones;
         PeerToPeer = peerToPeer;
         Tasks = tasks;
         Crypto = crypto;
         PortForwards = portForwards;
+        SocksService = socksService;
         Hub = hub;
 
         LoadModules();

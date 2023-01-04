@@ -27,6 +27,7 @@ public class DatabaseService : IDatabaseService
             conn.CreateTable<DroneDao>();
             conn.CreateTable<TaskRecordDao>();
             conn.CreateTable<ReversePortForwardDao>();
+            conn.CreateTable<SocksDao>();
         }
         
         // open connections

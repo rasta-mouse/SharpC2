@@ -31,6 +31,9 @@ public class SharpC2Hub
     public Func<string, Task> ReversePortForwardCreated { get; set; }
     public Func<string, Task> ReversePortForwardDeleted { get; set; }
     
+    public Func<string, Task> SocksProxyStarted { get; set; }
+    public Func<string, Task> SocksProxyStopped { get; set; }
+
     public Func<int, string, Task> NewEvent { get; set; }
     
     private HubConnection _connection;
@@ -74,6 +77,9 @@ public class SharpC2Hub
         
         _connection.On<string>("ReversePortForwardCreated", OnReversePortForwardCreated);
         _connection.On<string>("ReversePortForwardDeleted", OnReversePortForwardDeleted);
+        
+        _connection.On<string>("SocksProxyStarted", OnSocksProxyStarted);
+        _connection.On<string>("SocksProxyStopped", OnSocksProxyStopped);
     }
     
     private static HttpMessageHandler HttpMessageHandlerFactory(HttpMessageHandler handler)
@@ -116,4 +122,7 @@ public class SharpC2Hub
     
     private void OnReversePortForwardCreated(string id) => ReversePortForwardCreated?.Invoke(id);
     private void OnReversePortForwardDeleted(string id) => ReversePortForwardDeleted?.Invoke(id);
+    
+    private void OnSocksProxyStarted(string id) => SocksProxyStarted?.Invoke(id);
+    private void OnSocksProxyStopped(string id) => SocksProxyStopped?.Invoke(id);
 }

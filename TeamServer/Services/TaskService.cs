@@ -24,12 +24,12 @@ public sealed class TaskService : ITaskService
         await conn.InsertAsync((TaskRecordDao)record);
     }
 
-    public void CacheFrame(string droneId, C2Frame frame)
+    public void CacheFrame(C2Frame frame)
     {
-        if (!_cached.ContainsKey(droneId))
-            _cached.Add(droneId, new Queue<C2Frame>());
+        if (!_cached.ContainsKey(frame.DroneId))
+            _cached.Add(frame.DroneId, new Queue<C2Frame>());
         
-        _cached[droneId].Enqueue(frame);
+        _cached[frame.DroneId].Enqueue(frame);
     }
 
     public async Task<IEnumerable<TaskRecord>> GetAll()

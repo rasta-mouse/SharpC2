@@ -54,6 +54,6 @@ public sealed class ReversePortForwardModule : ServerModule
         // new frame
         frame = new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await Crypto.Encrypt(packet));
         
-        Tasks.CacheFrame(forward.DroneId, frame);
+        Tasks.CacheFrame(frame);
     }
 }

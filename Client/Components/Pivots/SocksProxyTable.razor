@@ -1,0 +1,99 @@
+﻿@inject SharpC2Api Api
+@inject SharpC2Hub Hub
+@inject IDialogService Dialogs
+
+@using Client.Models.Pivots
+@implements IDisposable
+
+<MudTable Items="@_proxies" Hover="true" Loading="@_loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>Drone</MudTh>
+        <MudTh>Bind Port</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Drone">@context.DroneDescription</MudTd>
+        <MudTd DataLabel="BindPort">@context.BindPort</MudTd>
+        <MudTd>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Medium"
+                               Color="@Color.Error" OnClick="@(async () => await DeleteProxy(context))"/>
+            </MudTooltip>
+        </MudTd>
+        
+    </RowTemplate>
+</MudTable>
+
+<MudTooltip Text="Create">
+    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Class="mt-4"
+            OnClick="OpenCreateProxy"/>
+</MudTooltip>
+
+@code {
+    
+    private bool _loading = true;
+    private List<SocksProxy> _proxies = new();
+
+    protected override void OnInitialized()
+    {
+        Hub.SocksProxyStarted += OnSocksProxyStarted;
+        Hub.SocksProxyStopped += OnSocksProxyStopped;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var proxies = await Api.GetSocksProxies();
+
+        foreach (var forward in proxies)
+            await AddProxy(forward);
+
+        _loading = false;
+    }
+
+    private async Task AddProxy(SocksProxy proxy)
+    {
+        var drone = await Api.GetDrone(proxy.DroneId);
+        proxy.DroneDescription = drone.ToString();
+            
+        _proxies.Add(proxy);
+    }
+    
+    private async Task OnSocksProxyStopped(string id)
+    {
+        var proxy = _proxies.Find(f => f.Id.Equals(id));
+
+        if (proxy is null)
+            return;
+
+        _proxies.Remove(proxy);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnSocksProxyStarted(string id)
+    {
+        var proxy = await Api.GetSocksProxy(id);
+        
+        if (proxy is null)
+            return;
+
+        await AddProxy(proxy);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task OpenCreateProxy()
+    {
+        var options = new DialogOptions { FullWidth = true };
+        await Dialogs.ShowAsync<CreateSocksProxy>("", options);
+    }
+    
+    private async Task DeleteProxy(SocksProxy proxy)
+    {
+        await Api.DeleteSocksProxy(proxy.Id);
+    }
+
+    public void Dispose()
+    {
+        Hub.SocksProxyStarted -= OnSocksProxyStarted;
+        Hub.SocksProxyStopped -= OnSocksProxyStopped;
+    }
+}

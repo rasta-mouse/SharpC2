@@ -113,7 +113,7 @@ public class TasksController : ControllerBase
         if (task.Status == TaskStatus.RUNNING)
         {
             var frame = new C2Frame(drone.Metadata.Id, FrameType.TASK_CANCEL, await _crypto.Encrypt(taskId));
-            _tasks.CacheFrame(droneId, frame);
+            _tasks.CacheFrame(frame);
             
             return NoContent();
         }

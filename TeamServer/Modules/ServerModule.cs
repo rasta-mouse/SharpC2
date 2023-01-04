@@ -16,6 +16,7 @@ public abstract class ServerModule : IServerModule
     protected ITaskService Tasks { get; private set; }
     protected ICryptoService Crypto { get; private set; }
     protected IReversePortForwardService PortForwards { get; private set; }
+    protected ISocksService SocksServers { get; private set; }
     protected IHubContext<NotificationHub, INotificationHub> Hub { get; private set; }
     
     public void Init(ServerService server)
@@ -25,6 +26,7 @@ public abstract class ServerModule : IServerModule
         Tasks = server.Tasks;
         Crypto = server.Crypto;
         PortForwards = server.PortForwards;
+        SocksServers = server.SocksService;
         Hub = server.Hub;
     }
 

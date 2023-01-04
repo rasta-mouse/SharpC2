@@ -108,6 +108,7 @@ internal static class Program
         builder.Services.AddSingleton<ITaskService, TaskService>();
         builder.Services.AddSingleton<IServerService, ServerService>();
         builder.Services.AddSingleton<IPeerToPeerService, PeerToPeerService>();
+        builder.Services.AddSingleton<ISocksService, SocksService>();
         
         builder.Services.AddTransient<ICryptoService, CryptoService>();
         builder.Services.AddTransient<IDroneService, DroneService>();
@@ -115,7 +116,7 @@ internal static class Program
         builder.Services.AddTransient<IEventService, EventService>();
         builder.Services.AddTransient<IHostedFilesService, HostedFileService>();
         builder.Services.AddTransient<IReversePortForwardService, ReversePortForwardService>();
-        
+
         _app = builder.Build();
         
         // build p2p graph from known drones
@@ -124,6 +125,10 @@ internal static class Program
         
         var p2pService = GetService<IPeerToPeerService>();
         p2pService.InitFromDrones(drones);
+        
+        // load socks proxies
+        var socks = GetService<ISocksService>();
+        await socks.LoadFromDatabase();
 
         // load saved handlers from DB
         await LoadHandlersFromDatabase();

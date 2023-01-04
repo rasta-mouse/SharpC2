@@ -110,4 +110,32 @@ public static class Extensions
         }
         while (bytesRemaining > 0);
     }
+
+    public static async Task<byte[]> ReadClient(this TcpClient client)
+    {
+        var stream = client.GetStream();
+        
+        using var ms = new MemoryStream();
+        int read;
+        
+        do
+        {
+            var buf = new byte[1024];
+            read = await stream.ReadAsync(buf, 0, buf.Length);
+            
+            if (read == 0)
+                break;
+
+            await ms.WriteAsync(buf, 0, read);
+        }
+        while (read >= 1024);
+        
+        return ms.ToArray();
+    }
+
+    public static async Task WriteClient(this TcpClient client, byte[] data)
+    {
+        var stream = client.GetStream();
+        await stream.WriteAsync(data, 0, data.Length);
+    }
 }

@@ -7,7 +7,7 @@ public interface ITaskService
 {
     // create
     Task Add(TaskRecord record);
-    void CacheFrame(string droneId, C2Frame frame);
+    void CacheFrame(C2Frame frame);
     
     // read
     Task<IEnumerable<TaskRecord>> GetAll();

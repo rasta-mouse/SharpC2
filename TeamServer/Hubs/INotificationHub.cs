@@ -57,4 +57,11 @@ public interface INotificationHub
     Task ReversePortForwardDeleted(string id);
 
     #endregion
+    
+    # region Socks
+
+    Task SocksProxyStarted(string id);
+    Task SocksProxyStopped(string id);
+
+    #endregion
 }

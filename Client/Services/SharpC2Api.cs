@@ -318,4 +318,34 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}", Method.Delete);
         await _client.ExecuteAsync(request);
     }
+
+    public async Task<IEnumerable<SocksProxy>> GetSocksProxies()
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}");
+        var response = await _client.ExecuteAsync<IEnumerable<SocksResponse>>(request);
+
+        return response.Data.Select(f => (SocksProxy)f);
+    }
+
+    public async Task<SocksProxy> GetSocksProxy(string id)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}/{id}");
+        var response = await _client.ExecuteAsync<SocksResponse>(request);
+
+        return response.Data;
+    }
+
+    public async Task CreateSocksProxy(SocksRequest socksRequest)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}", Method.Post);
+        request.AddParameter("application/json", JsonSerializer.Serialize(socksRequest), ParameterType.RequestBody);
+
+        await _client.ExecuteAsync(request);
+    }
+
+    public async Task DeleteSocksProxy(string id)
+    {
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}/{id}", Method.Delete);
+        await _client.ExecuteAsync(request);
+    }
 }

@@ -1,0 +1,65 @@
+﻿@using SharpC2.API.Requests
+@using Client.Models.Drones
+
+@inject SharpC2Api Api
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            
+            <MudSelect T="Drone" Label="Drone" Variant="Variant.Outlined" @bind-Value="_drone">
+                @foreach (var drone in _drones)
+                {
+                    <MudSelectItem T="Drone" Value="@drone" />
+                }
+            </MudSelect>
+
+            <MudNumericField @bind-Value="_bindPort" Label="Bind Port" Variant="Variant.Text" Min="1" Max="65535" Immediate="@true"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; }
+
+    private MudForm _form;
+    private bool _success;
+
+    private readonly List<Drone> _drones = new();
+
+    private Drone _drone;
+    private int _bindPort = 1080;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var drones = await Api.GetDrones();
+        _drones.AddRange(drones);
+    }
+
+    private async Task Submit()
+    {
+        if (!_success)
+        {
+            await _form.Validate();
+            return;
+        }
+
+        var request = new SocksRequest
+        {
+            DroneId = _drone.Metadata.Id,
+            BindPort = _bindPort
+        };
+
+        await Api.CreateSocksProxy(request);
+        MudDialog.Close(DialogResult.Ok(true)); 
+    }
+    
+    private void Cancel()
+        => MudDialog.Cancel();
+}

@@ -125,6 +125,8 @@
         <Compile Include="Messages\Metadata.cs" />
         <Compile Include="Messages\ProcessEntry.cs" />
         <Compile Include="Messages\ReversePortForwardPacket.cs" />
+        <Compile Include="Messages\Socks4ConnectRequest.cs" />
+        <Compile Include="Messages\Socks4Packet.cs" />
         <Compile Include="Messages\TaskOutput.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
