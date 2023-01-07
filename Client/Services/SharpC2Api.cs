@@ -80,7 +80,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/http/{name}");
         var response = await _client.ExecuteAsync<HttpHandlerResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task CreateHttpHandler(HttpHandlerRequest handlerRequest)
@@ -104,7 +104,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/smb/{name}");
         var response = await _client.ExecuteAsync<SmbHandlerResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task CreateSmbHandler(SmbHandlerRequest handlerRequest)
@@ -128,7 +128,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/tcp/{name}");
         var response = await _client.ExecuteAsync<TcpHandlerResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
     
     public async Task CreateTcpHandler(TcpHandlerRequest handlerRequest)
@@ -152,7 +152,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Handlers}/ext/{name}");
         var response = await _client.ExecuteAsync<ExtHandlerResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
     
     public async Task CreateExtHandler(ExtHandlerRequest handlerRequest)
@@ -184,7 +184,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.HostedFiles}/{id}");
         var response = await _client.ExecuteAsync<HostedFileResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task DeleteHostedFile(string id)
@@ -212,7 +212,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Drones}/{id}");
         var response = await _client.ExecuteAsync<DroneResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task DeleteDrone(string id)
@@ -242,7 +242,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Tasks}/{droneId}/{taskId}");
         var response = await _client.ExecuteAsync<TaskRecordResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task DeleteTask(string droneId, string taskId)
@@ -270,7 +270,7 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/web/{id}");
         var response = await _client.ExecuteAsync<WebLogEventResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task<IEnumerable<UserAuthEvent>> GetAuthEvents()
@@ -286,12 +286,12 @@ public class SharpC2Api
         var request = new RestRequest($"{SharpC2.API.Routes.V1.Events}/auth/{id}");
         var response = await _client.ExecuteAsync<UserAuthEventResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task<IEnumerable<ReversePortForward>> GetReversePortForwards()
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}");
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/rportfwd");
         var response = await _client.ExecuteAsync<IEnumerable<ReversePortForwardResponse>>(request);
 
         return response.Data.Select(f => (ReversePortForward)f);
@@ -299,15 +299,15 @@ public class SharpC2Api
 
     public async Task<ReversePortForward> GetReversePortForward(string id)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}");
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/rportfwd/{id}");
         var response = await _client.ExecuteAsync<ReversePortForwardResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task CreateReversePortForward(ReversePortForwardRequest fwdRequest)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}", Method.Post);
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/rportfwd", Method.Post);
         request.AddParameter("application/json", JsonSerializer.Serialize(fwdRequest), ParameterType.RequestBody);
 
         await _client.ExecuteAsync(request);
@@ -315,13 +315,13 @@ public class SharpC2Api
 
     public async Task DeleteReversePortForward(string id)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.ReversePortForwards}/{id}", Method.Delete);
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/rportfwd/{id}", Method.Delete);
         await _client.ExecuteAsync(request);
     }
 
     public async Task<IEnumerable<SocksProxy>> GetSocksProxies()
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}");
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/socks");
         var response = await _client.ExecuteAsync<IEnumerable<SocksResponse>>(request);
 
         return response.Data.Select(f => (SocksProxy)f);
@@ -329,15 +329,15 @@ public class SharpC2Api
 
     public async Task<SocksProxy> GetSocksProxy(string id)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}/{id}");
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/socks/{id}");
         var response = await _client.ExecuteAsync<SocksResponse>(request);
 
-        return response.Data;
+        return response.IsSuccessStatusCode ? response.Data : null;
     }
 
     public async Task CreateSocksProxy(SocksRequest socksRequest)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}", Method.Post);
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/socks", Method.Post);
         request.AddParameter("application/json", JsonSerializer.Serialize(socksRequest), ParameterType.RequestBody);
 
         await _client.ExecuteAsync(request);
@@ -345,7 +345,7 @@ public class SharpC2Api
 
     public async Task DeleteSocksProxy(string id)
     {
-        var request = new RestRequest($"{SharpC2.API.Routes.V1.Socks}/{id}", Method.Delete);
+        var request = new RestRequest($"{SharpC2.API.Routes.V1.Pivots}/socks/{id}", Method.Delete);
         await _client.ExecuteAsync(request);
     }
 }

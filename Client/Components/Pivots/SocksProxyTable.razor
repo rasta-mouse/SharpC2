@@ -53,7 +53,7 @@
     private async Task AddProxy(SocksProxy proxy)
     {
         var drone = await Api.GetDrone(proxy.DroneId);
-        proxy.DroneDescription = drone.ToString();
+        proxy.DroneDescription = drone is null ? "Unknown" : drone.ToString();
             
         _proxies.Add(proxy);
     }

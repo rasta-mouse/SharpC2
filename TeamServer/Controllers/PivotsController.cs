@@ -16,26 +16,28 @@ namespace TeamServer.Controllers;
 
 [Authorize]
 [ApiController]
-[Route(Routes.V1.ReversePortForwards)]
-public sealed class ReversePortForwardsController : ControllerBase
+[Route(Routes.V1.Pivots)]
+public sealed class PivotsController : ControllerBase
 {
     private readonly IReversePortForwardService _portForwards;
+    private readonly ISocksService _socks;
     private readonly IDroneService _drones;
     private readonly ITaskService _tasks;
     private readonly ICryptoService _crypto;
     private readonly IHubContext<NotificationHub, INotificationHub> _hub;
-
-    public ReversePortForwardsController(IReversePortForwardService portForwards, IDroneService drones,
-        ITaskService tasks, ICryptoService crypto, IHubContext<NotificationHub, INotificationHub> hub)
+    
+    public PivotsController(IReversePortForwardService portForwards, IDroneService drones,
+        ITaskService tasks, ICryptoService crypto, IHubContext<NotificationHub, INotificationHub> hub, ISocksService socks)
     {
         _portForwards = portForwards;
         _drones = drones;
         _tasks = tasks;
         _crypto = crypto;
         _hub = hub;
+        _socks = socks;
     }
-
-    [HttpGet]
+    
+    [HttpGet("rportfwd")]
     public async Task<ActionResult<IEnumerable<ReversePortForwardResponse>>> GetAll([FromQuery] string droneId)
     {
         IEnumerable<ReversePortForward> forwards;
@@ -49,10 +51,10 @@ public sealed class ReversePortForwardsController : ControllerBase
         return Ok(response);
     }
 
-    [HttpGet("{forwardId}")]
-    public async Task<ActionResult<ReversePortForwardResponse>> Get(string forwardId)
+    [HttpGet("rportfwd/{id}")]
+    public async Task<ActionResult<ReversePortForwardResponse>> Get(string id)
     {
-        var forward = await _portForwards.Get(forwardId);
+        var forward = await _portForwards.Get(id);
 
         if (forward is null)
             return NotFound();
@@ -60,7 +62,7 @@ public sealed class ReversePortForwardsController : ControllerBase
         return Ok((ReversePortForwardResponse)forward);
     }
 
-    [HttpPost]
+    [HttpPost("rportfwd")]
     public async Task<ActionResult<ReversePortForwardResponse>> CreateNew([FromBody] ReversePortForwardRequest request)
     {
         // check drone exists
@@ -93,10 +95,10 @@ public sealed class ReversePortForwardsController : ControllerBase
         return Ok((ReversePortForwardResponse)forward);
     }
 
-    [HttpDelete("{forwardId}")]
-    public async Task<IActionResult> Delete(string forwardId)
+    [HttpDelete("rportfwd/{id}")]
+    public async Task<IActionResult> Delete(string id)
     {
-        var forward = await _portForwards.Get(forwardId);
+        var forward = await _portForwards.Get(id);
 
         if (forward is null)
             return NotFound();
@@ -108,6 +110,59 @@ public sealed class ReversePortForwardsController : ControllerBase
         var packet = new ReversePortForwardPacket(forward.Id, ReversePortForwardPacket.PacketType.STOP);
         var frame = new C2Frame(forward.DroneId, FrameType.REV_PORT_FWD, await _crypto.Encrypt(packet));
         _tasks.CacheFrame(frame);
+        
+        return NoContent();
+    }
+    
+    [HttpGet("socks")]
+    public ActionResult<IEnumerable<SocksResponse>> GetSocksProxies()
+    {
+        var socks = _socks.Get();
+        var response = socks.Select(s => (SocksResponse)s);
+
+        return Ok(response);
+    }
+
+    [HttpGet("socks/{id}")]
+    public ActionResult<SocksResponse> GetSocksProxy(string id)
+    {
+        var socks = _socks.Get(id);
+
+        if (socks is null)
+            return NotFound();
+
+        return Ok((SocksResponse)socks);
+    }
+
+    [HttpPost("socks")]
+    public async Task<ActionResult<SocksResponse>> CreateSocksProxy([FromBody] SocksRequest request)
+    {
+        var existing = _socks.Get();
+
+        if (existing.Any(s => s.BindPort == request.BindPort))
+            return BadRequest("Bind Port is already in use");
+
+        var socks = (SocksProxy)request;
+        _ = socks.Start();
+        
+        await _socks.Add(socks);
+        await _hub.Clients.All.SocksProxyStarted(socks.Id);
+        
+        return Ok((SocksResponse)socks);
+    }
+
+    [HttpDelete("socks/{id}")]
+    public async Task<IActionResult> DeleteSocksProxy(string id)
+    {
+        var socks = _socks.Get(id);
+
+        if (socks is null)
+            return NotFound();
+        
+        socks.Stop();
+
+        await _socks.Delete(socks);
+        await _hub.Clients.All.SocksProxyStopped(socks.Id);
         
         return NoContent();
     }
