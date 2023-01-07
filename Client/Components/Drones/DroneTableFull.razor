@@ -1,6 +1,7 @@
 ﻿@inject SharpC2Api Api
 @inject SharpC2Hub Hub
 @inject NavigationManager Nav
+@inject IDialogService Dialogs
 
 @implements IDisposable
 
@@ -31,6 +32,8 @@
                     colour = Color.Info;
             }
             <MudMenu Icon="@Icons.Filled.Monitor" Color="colour" Title="Options">
+                <MudMenuItem OnClick="@(async () => await SetSleep(context))">Sleep</MudMenuItem>
+                <MudDivider />
                 <MudMenuItem OnClick="@(async () => await KillDrone(context))">Kill</MudMenuItem>
                 <MudMenuItem OnClick="@(async () => await DeleteDrone(context))">Remove</MudMenuItem>
             </MudMenu>
@@ -178,6 +181,16 @@
             
             _ => throw new ArgumentOutOfRangeException()
             };
+    }
+
+    private async Task SetSleep(Drone drone)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Drone", drone }
+        };
+
+        await Dialogs.ShowAsync<SleepDialogue>("", parameters);
     }
 
     private async Task KillDrone(Drone drone)

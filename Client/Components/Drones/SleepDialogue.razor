@@ -1,0 +1,55 @@
+﻿@using SharpC2.API.Requests
+@using Client.Models.Drones
+
+@inject SharpC2Api Api
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudNumericField @bind-Value="_sleep" Label="Sleep (s)" Variant="Variant.Text" Min="0" Max="@int.MaxValue" Immediate="@true" />
+            <MudNumericField @bind-Value="_jitter" Label="Jitter (%)" Variant="Variant.Text" Min="0" Max="100" Immediate="@true" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    
+    [CascadingParameter]
+    public MudDialogInstance MudDialog { get; set; }
+    
+    [Parameter]
+    public Drone Drone { get; set; }
+    
+    private MudForm _form;
+    private bool _success;
+
+    private int _sleep;
+    private int _jitter;
+    
+    private async Task Submit()
+    {
+        if (!_success)
+        {
+            await _form.Validate();
+            return;
+        }
+
+        var taskRequest = new TaskRequest
+        {
+            Command = 0x01,
+            Alias = "sleep",
+            Arguments = new[] { _sleep.ToString(), _jitter.ToString() },
+            ResultType = 0
+        };
+
+        await Api.TaskDrone(Drone.Metadata.Id, taskRequest);
+        MudDialog.Close(DialogResult.Ok(true));   
+    }
+    
+    private void Cancel()
+        => MudDialog.Cancel();
+}
