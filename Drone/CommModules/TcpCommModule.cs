@@ -69,7 +69,12 @@ public sealed class TcpCommModule : P2PCommModule
         {
             case ModuleMode.SERVER:
             {
+                // wait for client
                 _client = await _listener.AcceptTcpClientAsync();
+                
+                // once connected, stop listening
+                _listener.Stop();
+                
                 break;
             }
 
@@ -110,7 +115,6 @@ public sealed class TcpCommModule : P2PCommModule
             await Task.Delay(100);
         }
         
-        _listener?.Stop();
         _client?.Dispose();
         _tokenSource.Dispose();
     }
