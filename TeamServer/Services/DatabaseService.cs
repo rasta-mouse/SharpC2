@@ -12,7 +12,12 @@ public class DatabaseService : IDatabaseService
 
     public DatabaseService()
     {
-        var path = Path.Combine(Directory.GetCurrentDirectory(), "Data", "SharpC2.db");
+        var directory = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        
+        var path = Path.Combine(directory, "SharpC2.db");
 
         using (var conn = new SQLiteConnection(path))
         {

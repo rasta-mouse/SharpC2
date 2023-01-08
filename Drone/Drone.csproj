@@ -134,7 +134,6 @@
         <Compile Include="Utilities\Extensions.cs" />
         <Compile Include="Utilities\Helpers.cs" />
         <Compile Include="Utilities\PowerShellRunner.cs" />
-        <Compile Include="Utilities\ShadowRunner.cs" />
         <Compile Include="Utilities\ReversePortForwardState.cs" />
     </ItemGroup>
     <ItemGroup>

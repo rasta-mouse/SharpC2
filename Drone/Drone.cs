@@ -250,7 +250,14 @@ public sealed class Drone
             }
             catch (TaskCanceledException)
             {
-                // send a task complete
+                await SendTaskComplete(task.Id);
+            }
+            catch (ThreadAbortException)
+            {
+                await SendTaskComplete(task.Id);
+            }
+            catch (OperationCanceledException)
+            {
                 await SendTaskComplete(task.Id);
             }
             catch (Exception e)

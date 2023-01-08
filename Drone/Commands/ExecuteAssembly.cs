@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,17 +13,25 @@ public sealed class ExecuteAssembly : DroneCommand
 
     public override async Task Execute(DroneTask task, CancellationToken cancellationToken)
     {
-        var appDomain = AppDomain.CreateDomain(Helpers.GenerateShortGuid());
-
-        var runner = (ShadowRunner)appDomain.CreateInstanceAndUnwrap(
-            typeof(ShadowRunner).Assembly.FullName,
-            typeof(ShadowRunner).FullName);
-
         using var ms = new MemoryStream();
         using var sw = new StreamWriter(ms) { AutoFlush = true };
-        runner.Writer = sw;
+        
+        // hijack console output
+        var stdOut = Console.Out;
+        var stdErr = Console.Error;
+        
+        Console.SetOut(sw);
+        Console.SetError(sw);
 
-        var t = new Thread(() => { runner.LoadEntryPoint(task.Artefact, task.Arguments); });
+        var t = new Thread(() =>
+        {
+            // load and run assembly
+            var asm = Assembly.Load(task.Artefact);
+            
+            // this will block
+            asm.EntryPoint.Invoke(null, new object[] { task.Arguments });
+        });
+        
         t.Start();
         
         // send a task running
@@ -53,9 +62,12 @@ public sealed class ExecuteAssembly : DroneCommand
         
         // after task has finished, do a final read
         output = ReadStream(ms);
-        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, output));
         
-        AppDomain.Unload(appDomain);
+        // restore console
+        Console.SetOut(stdOut);
+        Console.SetError(stdErr);
+        
+        await Drone.SendTaskOutput(new TaskOutput(task.Id, TaskStatus.COMPLETE, output));
     }
 
     private static byte[] ReadStream(MemoryStream ms)
